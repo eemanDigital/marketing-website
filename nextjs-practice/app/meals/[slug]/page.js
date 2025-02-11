@@ -1,10 +1,24 @@
 import Image from "next/image";
 import classes from "./page.module.css";
 import { getMeal } from "@/lib/meals";
+import { notFound } from "next/navigation";
+
+//dynamic metadata generator for dynamic page
+// this 'generateMetadata' must be used
+export async function generateMetadata({ params }) {
+  const meal = getMeal(params.slug);
+
+  if (!meal) {
+    notFound();
+  }
+  return {
+    title: meal.title,
+    description: meal.summary,
+  };
+}
 
 const MealsDetail = ({ params }) => {
   const meal = getMeal(params.slug);
-  console.log(meal);
 
   meal.instructions = meal.instructions.replace(/\n/g, "<br>");
 
