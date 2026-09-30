@@ -456,7 +456,7 @@ button {
 
   width: 48%;
 
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 .hero-title {
@@ -534,7 +534,7 @@ button {
   height: 500px;
 
   right: 65px;
-  bottom: 15px;
+  bottom: 45px;
 
   background: #f49a31;
 
@@ -579,7 +579,7 @@ button {
   position: absolute;
 
   right: 75px;
-  bottom: -20px;
+  bottom: 95px;
 
   width: 500px;
   height: 570px;
@@ -717,6 +717,7 @@ button {
 
   .person-wrapper {
     right: 30px;
+    bottom: 40px;
     width: 400px;
     height: 500px;
   }
@@ -818,7 +819,7 @@ button {
     height: 310px;
 
     right: 25px;
-    bottom: 10px;
+    bottom: 40px;
 
     border-radius: 45px;
   }
@@ -828,7 +829,7 @@ button {
     height: 390px;
 
     right: 25px;
-    bottom: -5px;
+    bottom: 45px;
   }
 
   .circle-decoration {
