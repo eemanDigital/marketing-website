@@ -739,7 +739,7 @@ button {
 
   .hero-container {
     min-height: 0;
-    padding: 28px 24px 32px;
+    padding: 28px 24px 0;
 
     border-radius: 0;
   }
@@ -795,6 +795,8 @@ button {
   .hero-visual {
     --u: 0.61;
 
+    order: 3;
+
     position: relative;
 
     width: 100%;
@@ -827,6 +829,8 @@ button {
   /* Contact */
 
   .contact {
+    order: 2;
+
     margin-top: 16px;
     padding-top: 0;
   }
