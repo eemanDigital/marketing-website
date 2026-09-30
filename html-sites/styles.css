@@ -308,6 +308,9 @@ button {
 .hero-container {
   position: relative;
 
+  display: flex;
+  flex-direction: column;
+
   width: 100%;
   min-height: 720px;
 
@@ -317,7 +320,7 @@ button {
 
   border-radius: 0;
 
-  padding: 42px 58px 38px;
+  padding: 42px 58px 40px;
 
   box-shadow: 0 20px 60px rgba(27, 48, 67, 0.07);
 }
@@ -510,6 +513,16 @@ button {
     ========================================================= */
 
 .hero-visual {
+  --u: 1;
+  --tip: 0.4;
+
+  --person-h: calc(675px * var(--u));
+  --shape-s: calc(540px * var(--u));
+  --shape-r: calc(76px * var(--u));
+  --shape-drop: calc(
+    (var(--shape-s) / 2 - var(--shape-r)) * 1.4142 + var(--shape-r)
+  );
+
   position: absolute;
 
   right: 35px;
@@ -531,16 +544,19 @@ button {
   position: absolute;
 
   left: 50%;
-  bottom: -215px;
 
-  width: 540px;
-  height: 540px;
+  width: var(--shape-s);
+  height: var(--shape-s);
+
+  border-radius: var(--shape-r);
 
   background: #f49a31;
 
-  border-radius: 76px;
-
   transform: translateX(-50%) rotate(45deg);
+
+  bottom: calc(
+    (1 - var(--tip)) * var(--person-h) - var(--shape-drop) - var(--shape-s) / 2
+  );
 
   z-index: 1;
 }
@@ -581,8 +597,8 @@ button {
   left: 50%;
   bottom: 0;
 
-  width: 540px;
-  height: 675px;
+  height: var(--person-h);
+  aspect-ratio: 447 / 559;
 
   max-width: none;
 
@@ -621,10 +637,8 @@ button {
     ========================================================= */
 
 .contact {
-  position: absolute;
-
-  left: 58px;
-  bottom: 40px;
+  margin-top: auto;
+  padding-top: 18px;
 
   z-index: 20;
 
@@ -701,29 +715,15 @@ button {
   }
 
   .hero-visual {
+    --u: 0.87;
+
     right: -25px;
     width: 62%;
-  }
-
-  .person {
-    width: 470px;
-    height: 588px;
-  }
-
-  .orange-shape {
-    width: 470px;
-    height: 470px;
-    bottom: -187px;
-    border-radius: 66px;
   }
 
   .teal-square {
     width: 150px;
     height: 150px;
-  }
-
-  .contact {
-    left: 40px;
   }
 }
 
@@ -793,28 +793,16 @@ button {
   /* Visual */
 
   .hero-visual {
+    --u: 0.61;
+
     position: relative;
 
     width: 100%;
-    height: 430px;
+    height: calc(var(--person-h) + 18px);
 
     right: auto;
     bottom: auto;
     margin: 12px 0 0;
-  }
-
-  .orange-shape {
-    width: 330px;
-    height: 330px;
-
-    bottom: -131px;
-
-    border-radius: 48px;
-  }
-
-  .person {
-    width: 330px;
-    height: 413px;
   }
 
   .circle-decoration {
@@ -839,10 +827,8 @@ button {
   /* Contact */
 
   .contact {
-    position: relative;
-    left: auto;
-    bottom: auto;
     margin-top: 16px;
+    padding-top: 0;
   }
 
   .phone-icon {
@@ -900,19 +886,7 @@ button {
   }
 
   .hero-visual {
-    height: 360px;
-  }
-
-  .orange-shape {
-    width: 272px;
-    height: 272px;
-    bottom: -108px;
-    border-radius: 40px;
-  }
-
-  .person {
-    width: 272px;
-    height: 340px;
+    --u: 0.5;
   }
 
   .teal-square {
