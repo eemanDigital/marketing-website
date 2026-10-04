@@ -1,0 +1,37 @@
+:root {
+  font-family: "Aptos", "Segoe UI", sans-serif;
+  --paper: #f8f7f2;
+  --surface: #fffefa;
+  --ink: #202722;
+  --pine: #344c43;
+  --coral: #d77f68;
+  --muted: #7e8379;
+  --line: #e5e5dc;
+  --serif:
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  color: var(--ink);
+  background: var(--paper);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+button {
+  font: inherit;
+}
+::selection {
+  color: #fff;
+  background: #67816e;
+}
