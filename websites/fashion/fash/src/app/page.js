@@ -1,4 +1,4 @@
-import Hero from "@/components/Hero";
+import ClothHero from "@/components/ClothHero";
 import Marquee from "@/components/Marquee";
 import Lookbook from "@/components/Lookbook";
 import Story from "@/components/Story";
@@ -11,7 +11,7 @@ import Care from "@/components/Care";
 export default function HomePage() {
   return (
     <>
-      <Hero />
+      <ClothHero />
       <Marquee />
       <Lookbook />
       <Story />

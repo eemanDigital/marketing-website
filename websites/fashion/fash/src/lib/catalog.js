@@ -2,14 +2,19 @@
    client components, so keep it serialisable (no functions). */
 
 /* Hero looks come in pairs: `img` is the piece worn by a model, `formImg`
-   is the same piece presented on a tailor's dress form. Both are transparent
-   cut-outs, so the stage can layer them into one diorama. `tint` colours the
-   light wash behind each pair. */
+   is the same piece presented on a tailor's dress form — the runway stage
+   wears one centre-stage and hangs the other in the product rail. `bg`
+   tints the whole stage for that look; `tint` washes behind the rail card. */
 export const HERO_SLIDES = [
   {
     id: "royal-blue-safari-suite",
     title: "Royal Blue Safari Suite",
     caption: "Safari suit · Short sleeve",
+    look: "Look 01",
+    collection: "Festive 2025",
+    description:
+      "Cut short in the sleeve with a half-canvas chest and four working pockets — the safari suit in its most confident colour.",
+    bg: "#e7ecf2",
     img: "/images/royal-blue-safari-suite.png",
     formImg: "/images/royal-blue-safari-suite-form.png",
     width: 1024,
@@ -19,9 +24,7 @@ export const HERO_SLIDES = [
     tint: "rgba(47, 79, 143, 0.3)",
     alt: "Model wearing a royal blue short-sleeve safari suite",
     formAlt: "Royal blue safari suite displayed on a tailor's dress form",
-    pin: {
-      x: "50%",
-      y: "58%",
+    product: {
       name: "Royal Blue Safari Suite",
       note: "Short sleeve · half canvas",
       price: 245000,
@@ -32,6 +35,11 @@ export const HERO_SLIDES = [
     id: "cream-embroidered-kaftan",
     title: "Cream Embroidered Kaftan",
     caption: "Embroidered · Short kaftan",
+    look: "Look 02",
+    collection: "Festive 2025",
+    description:
+      "A hand-trimmed neckline and a relaxed short line: the kaftan that carries every festive occasion.",
+    bg: "#efece5",
     img: "/images/cream-offwhite-embroidered-kaftan-short.png",
     formImg: "/images/cream-offwhite-embroidered-kaftan-short-form.png",
     width: 922,
@@ -41,9 +49,7 @@ export const HERO_SLIDES = [
     tint: "rgba(194, 164, 125, 0.34)",
     alt: "Model wearing a cream off-white embroidered short kaftan",
     formAlt: "Cream embroidered short kaftan displayed on a tailor's dress form",
-    pin: {
-      x: "50%",
-      y: "58%",
+    product: {
       name: "Cream Embroidered Kaftan",
       note: "Hand-trimmed neckline",
       price: 198000,
@@ -54,6 +60,11 @@ export const HERO_SLIDES = [
     id: "deep-burgundy-safari-suit",
     title: "Deep Burgundy Safari Suit",
     caption: "Safari suit · Tailored",
+    look: "Look 03",
+    collection: "Festive 2025",
+    description:
+      "Horn buttons, a slim cut and deep burgundy — tailoring that follows you from the altar to the after-party.",
+    bg: "#efe7ea",
     img: "/images/deep-burgundy-safari-suit-short.png",
     formImg: "/images/deep-burgundy-safari-suit-short-form.png",
     width: 1024,
@@ -63,9 +74,7 @@ export const HERO_SLIDES = [
     tint: "rgba(109, 36, 54, 0.3)",
     alt: "Model wearing a deep burgundy short safari suit",
     formAlt: "Deep burgundy safari suit displayed on a tailor's dress form",
-    pin: {
-      x: "50%",
-      y: "58%",
+    product: {
       name: "Deep Burgundy Safari Suit",
       note: "Horn buttons · slim cut",
       price: 230000,
@@ -76,6 +85,11 @@ export const HERO_SLIDES = [
     id: "medium-grey-high-collar",
     title: "Medium Grey High Collar",
     caption: "High collar · Patterned",
+    look: "Look 04",
+    collection: "Festive 2025",
+    description:
+      "A patterned weave on a banded collar. Quiet grey with a sharp shoulder and nothing left to prove.",
+    bg: "#ebebeb",
     img: "/images/medium-grey-high-collar-pattern.png",
     formImg: "/images/medium-grey-high-collar-pattern-form.png",
     width: 976,
@@ -85,9 +99,7 @@ export const HERO_SLIDES = [
     tint: "rgba(122, 122, 122, 0.3)",
     alt: "Model wearing a medium grey patterned high-collar tunic",
     formAlt: "Medium grey high-collar pattern displayed on a tailor's dress form",
-    pin: {
-      x: "50%",
-      y: "58%",
+    product: {
       name: "Medium Grey High Collar",
       note: "Patterned weave · banded collar",
       price: 215000,
@@ -98,6 +110,11 @@ export const HERO_SLIDES = [
     id: "mustard-yellow-safari-suite",
     title: "Mustard Yellow Safari Suite",
     caption: "Safari suit · Statement",
+    look: "Look 05",
+    collection: "Festive 2025",
+    description:
+      "The statement piece of the season: short sleeve, confident mustard, impossible to miss.",
+    bg: "#f2eee3",
     img: "/images/mustard-yellow-safari-suite-short.png",
     formImg: "/images/mustard-yellow-safari-suite-short-form.png",
     width: 1024,
@@ -107,9 +124,7 @@ export const HERO_SLIDES = [
     tint: "rgba(216, 161, 26, 0.32)",
     alt: "Model wearing a mustard yellow short safari suite",
     formAlt: "Mustard yellow safari suite displayed on a tailor's dress form",
-    pin: {
-      x: "50%",
-      y: "58%",
+    product: {
       name: "Mustard Yellow Safari Suite",
       note: "Short sleeve · statement cut",
       price: 225000,
@@ -120,6 +135,11 @@ export const HERO_SLIDES = [
     id: "off-white-long-line-kaftan",
     title: "Off-White Long-Line Kaftan",
     caption: "Long line · Flowing",
+    look: "Look 06",
+    collection: "Festive 2025",
+    description:
+      "Ankle-length and flowing, with side slits that let the off-white cloth move with every step.",
+    bg: "#eceef0",
     img: "/images/off-white-long-line-kaftan-long.png",
     formImg: "/images/off-white-long-line-kaftan-long-form.png",
     width: 922,
@@ -129,9 +149,7 @@ export const HERO_SLIDES = [
     tint: "rgba(233, 227, 216, 0.5)",
     alt: "Model wearing an off-white long-line kaftan",
     formAlt: "Off-white long-line kaftan displayed on a tailor's dress form",
-    pin: {
-      x: "50%",
-      y: "58%",
+    product: {
       name: "Off-White Long-Line Kaftan",
       note: "Ankle length · side slit",
       price: 175000,
@@ -142,6 +160,11 @@ export const HERO_SLIDES = [
     id: "dark-grey-safari-suite",
     title: "Dark Grey Safari Suite",
     caption: "Safari suit · Short sleeve",
+    look: "Look 07",
+    collection: "Festive 2025",
+    description:
+      "Soft shoulder, short sleeve, easy through the body — dark grey safari tailoring that works from day to night.",
+    bg: "#e9e9ea",
     img: "/images/dark-grey-safari-suite-short-sleeve.png",
     formImg: "/images/dark-grey-safari-suite-short-sleeve-form.png",
     width: 1024,
@@ -151,9 +174,7 @@ export const HERO_SLIDES = [
     tint: "rgba(74, 74, 74, 0.3)",
     alt: "Model wearing a dark grey short-sleeve safari suite",
     formAlt: "Dark grey safari suite displayed on a tailor's dress form",
-    pin: {
-      x: "50%",
-      y: "58%",
+    product: {
       name: "Dark Grey Safari Suite",
       note: "Short sleeve · soft shoulder",
       price: 190000,

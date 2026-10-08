@@ -80,7 +80,7 @@ export function generateViewport() {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="no-js" suppressHydrationWarning>
-      <body>
+      <body suppressHydrationWarning>
         <script
           dangerouslySetInnerHTML={{
             __html: `document.documentElement.classList.remove("no-js");`,
