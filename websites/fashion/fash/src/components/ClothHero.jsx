@@ -22,12 +22,12 @@ const CARDS = [
   {
     src: "/images/dark-burgundy-kaftan.jpg",
     alt: "Dark burgundy kaftan with gold embroidered placket",
-    label: "Burgundy Kaftan",
+    label: "Dark Burgundy Kaftan",
   },
   {
     src: "/images/butter-cream-dark-brown-long-safari-suit.jpg",
     alt: "Butter cream safari suit with dark brown trousers",
-    label: "Safari Suit",
+    label: "Cream Safari Suit",
   },
 ];
 
@@ -262,16 +262,17 @@ export default function ClothHero() {
         <div className="cloth-hero__copy">
           <h1 className="cloth-hero__title">
             <span className="cloth-hero__line">
-              <span>Express Your Identity with</span>
+              <span>Kaftans and Safari Suits</span>
             </span>
             <span className="cloth-hero__line">
-              <span className="is-accent">Our Unique Style</span>
+              <span className="is-accent">Tailored to Express You</span>
             </span>
           </h1>
 
           <p className="cloth-hero__desc">
-            Showcase your true self with our distinctive clothing collection
-            that blends style and individuality.
+            Charcoal and dark burgundy kaftans, an off-white long sleeve and a
+            butter cream safari suit — hand-finished in Lagos, each cut to blend
+            style and individuality.
           </p>
         </div>
 
@@ -337,7 +338,7 @@ export default function ClothHero() {
               </defs>
               <text>
                 <textPath href="#clothBadgePath">
-                  BEST DESIGN AND QUALITY •
+                  KAFTANS • SAFARI SUITS •
                 </textPath>
               </text>
             </svg>

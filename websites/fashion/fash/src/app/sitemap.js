@@ -8,5 +8,11 @@ export default function sitemap() {
       changeFrequency: "monthly",
       priority: 1,
     },
+    {
+      url: `${SITE.url}/collection`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
   ];
 }

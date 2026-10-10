@@ -1,0 +1,1025 @@
+/* ============================================================
+   COLLECTION PAGE — editorial cream-and-black layout.
+   Imported only by src/components/Collection.jsx. Type, tokens and
+   motion curves come from globals.css (Playfair + Inter).
+   ============================================================ */
+.cl {
+  --cl-tan: #cdb792;
+  --cl-muted: rgba(20, 17, 15, 0.62);
+  --cl-r: clamp(14px, 1.8vw, 22px);
+  --lb-curtain: var(--dark);
+
+  position: relative;
+  overflow-x: clip;
+  background: var(--bg);
+  color: var(--ink);
+  padding-top: calc(var(--nav-h) + clamp(0.5rem, 2vw, 1.5rem));
+}
+
+.cl-wrap {
+  width: min(var(--maxw), 100% - var(--gutter) * 2);
+  margin-inline: auto;
+}
+
+.cl h1,
+.cl h2,
+.cl h3 {
+  margin: 0;
+  font-family: var(--f-serif);
+  font-weight: 400;
+}
+
+.cl-ico {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* next/image `fill` leaves object-fit unset */
+.cl img {
+  object-fit: cover;
+  object-position: center 12%;
+}
+
+.cl-eyebrow {
+  display: block;
+  color: var(--accent-deep);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   CURTAIN REVEAL — a solid panel slides off the photo (GSAP tweens
+   --c 1 to 0). The photo itself is never hidden, and the panel only
+   exists once JS has armed the page.
+   ============================================================ */
+.cl.is-armed [data-curtain]:not(.is-in)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: var(--lb-curtain);
+  pointer-events: none;
+}
+
+.cl.is-armed [data-curtain="x"]:not(.is-in)::after {
+  transform: scaleX(var(--c, 1));
+  transform-origin: right center;
+}
+
+.cl.is-armed [data-curtain="y"]:not(.is-in)::after {
+  transform: scaleY(var(--c, 1));
+  transform-origin: center top;
+}
+
+/* ============================================================
+   BUTTONS + LINKS
+   ============================================================ */
+.cl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem 1.7rem;
+  border: 0;
+  border-radius: 6px;
+  font-family: var(--f-sans);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.4s var(--e-out),
+    transform 0.4s var(--e-out);
+}
+
+.cl-btn--dark {
+  background: var(--dark);
+  color: #fff;
+}
+
+.cl-btn--dark:hover {
+  background: var(--accent-deep);
+  transform: translateY(-2px);
+}
+
+.cl-btn:focus-visible,
+.cl-link:focus-visible,
+.cl-chip:focus-visible,
+.cl-shopnow:focus-visible,
+.cl-quick:focus-visible,
+.cl-bagbtn:focus-visible,
+.cl-ctrl button:focus-visible,
+.cl-pill:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 3px;
+}
+
+.cl-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+}
+
+.cl-link .cl-ico {
+  transition: transform 0.4s var(--e-out);
+}
+
+.cl-link:hover .cl-ico {
+  transform: translateX(5px);
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.cl-hero {
+  position: relative;
+  padding-bottom: clamp(3rem, 6vw, 5rem);
+}
+
+.cl-hero__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.95fr) minmax(0, 0.58fr);
+  gap: clamp(0.75rem, 1.6vw, 1.75rem);
+  align-items: center;
+  min-height: clamp(520px, 50vw, 700px);
+}
+
+.cl-hero__inner > * {
+  min-width: 0;
+}
+
+.cl-hero__copy {
+  position: relative;
+  z-index: 4;
+}
+
+.cl-title {
+  text-transform: uppercase;
+  line-height: 0.95;
+}
+
+.cl-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.1em;
+}
+
+.cl-line > span {
+  display: block;
+  will-change: transform;
+}
+
+.cl-title__sm {
+  font-size: clamp(1rem, 2vw, 1.6rem);
+  letter-spacing: 0.05em;
+}
+
+.cl-title__sm em {
+  font-style: normal;
+  color: var(--accent-deep);
+}
+
+.cl-title__lg {
+  font-size: clamp(3.8rem, 9.4vw, 8.4rem);
+  letter-spacing: -0.01em;
+  line-height: 0.9;
+}
+
+.cl-title__md {
+  font-size: clamp(2.6rem, 6vw, 5.6rem);
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+  white-space: nowrap;
+}
+
+.cl-hero__p {
+  max-width: 34ch;
+  margin: clamp(1rem, 2vw, 1.5rem) 0 clamp(1.1rem, 2vw, 1.6rem);
+  color: var(--cl-muted);
+  font-size: clamp(0.8rem, 0.95vw, 0.92rem);
+  line-height: 1.7;
+}
+
+.cl-trust {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: clamp(1.25rem, 2.4vw, 1.8rem);
+}
+
+.cl-trust__faces {
+  display: flex;
+}
+
+.cl-trust__faces i {
+  width: 34px;
+  height: 34px;
+  margin-left: -9px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d6b697, #7a5337);
+}
+
+.cl-trust__faces i:first-child {
+  margin-left: 0;
+}
+
+.cl-trust__faces i:nth-child(2) {
+  background: linear-gradient(135deg, #bf9a7a, #3a2a20);
+}
+
+.cl-trust__faces i:nth-child(3) {
+  background: linear-gradient(135deg, #e4c9a8, #8b6446);
+}
+
+.cl-trust p {
+  margin: 0;
+  color: var(--cl-muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.cl-trust b {
+  color: var(--ink);
+}
+
+/* -------- Centre: tan shape + the look -------- */
+.cl-hero__media {
+  position: relative;
+  height: clamp(440px, 48vw, 660px);
+}
+
+.cl-shape {
+  position: absolute;
+  inset: 4% 4% 12% 0;
+  z-index: 0;
+  background: var(--cl-tan);
+  transform: skewX(-9deg);
+}
+
+.cl-star {
+  position: absolute;
+  top: 0;
+  right: 2%;
+  z-index: 4;
+  width: clamp(28px, 3vw, 44px);
+  height: clamp(28px, 3vw, 44px);
+  fill: var(--dark);
+}
+
+.cl-scribble {
+  position: absolute;
+  left: -18%;
+  bottom: 10%;
+  z-index: 3;
+  width: 60%;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--dark);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.cl-hero__frame {
+  position: absolute;
+  inset: 0 6% 0 14%;
+  z-index: 2;
+  overflow: hidden;
+  border-radius: var(--cl-r);
+  background: #d9d3c9;
+  will-change: transform;
+}
+
+.cl-slide {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform, opacity;
+}
+
+.cl-slide.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* -------- Right column -------- */
+.cl-hero__side {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.8rem, 1.4vw, 1.1rem);
+}
+
+.cl-pill {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: clamp(56px, 6vw, 84px);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 20px;
+  background: #d9d3c9;
+  cursor: pointer;
+}
+
+.cl-pill img {
+  transition: transform 0.9s var(--e-out);
+}
+
+.cl-pill:hover img {
+  transform: scale(1.08);
+}
+
+.cl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: clamp(0.9rem, 1.6vw, 1.4rem);
+  border: 1px solid var(--line);
+  border-radius: var(--cl-r);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.cl-card small {
+  display: block;
+  color: var(--accent-deep);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.cl-card h2 {
+  margin: 0.55rem 0 0.4rem;
+  font-size: clamp(0.95rem, 1.3vw, 1.15rem);
+  line-height: 1.25;
+}
+
+.cl-card b {
+  font-family: var(--f-sans);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cl-ctrl button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition:
+    background 0.35s var(--e-out),
+    color 0.35s var(--e-out);
+}
+
+.cl-ctrl button:hover {
+  background: var(--dark);
+  border-color: var(--dark);
+  color: #fff;
+}
+
+.cl-ctrl__n {
+  margin-left: 0.4rem;
+  color: var(--ink-3);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   BAND — slanted black ribbon
+   ============================================================ */
+.cl-band-wrap {
+  position: relative;
+  z-index: 5;
+  overflow: hidden;
+  padding-block: clamp(1.5rem, 3.5vw, 3rem);
+}
+
+.cl-band {
+  margin-inline: -6%;
+  overflow: hidden;
+  padding: clamp(1rem, 2.2vw, 1.7rem) 0;
+  background: var(--dark);
+  color: #fff;
+  white-space: nowrap;
+  transform: rotate(-2.6deg);
+  box-shadow: 0 18px 40px rgba(20, 17, 15, 0.18);
+}
+
+.cl-band__track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.cl-band__group {
+  display: flex;
+  flex: none;
+}
+
+.cl-band__group > span {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(1.4rem, 3vw, 3rem);
+  padding-right: clamp(1.4rem, 3vw, 3rem);
+  font-family: var(--f-serif);
+  font-size: clamp(1.4rem, 3.2vw, 2.5rem);
+  font-style: italic;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.cl-band__group > span i {
+  width: 0.28em;
+  height: 0.28em;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ============================================================
+   NEW ARRIVALS
+   ============================================================ */
+.cl-arr {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.2fr) minmax(0, 0.95fr);
+  gap: clamp(1rem, 2.2vw, 2rem);
+  align-items: stretch;
+  padding-top: clamp(2rem, 5vw, 4rem);
+}
+
+.cl-arr > * {
+  min-width: 0;
+}
+
+.cl-arr__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-top: clamp(0.5rem, 3vw, 2.5rem);
+}
+
+.cl-arr__copy h2 {
+  margin: 1rem 0 1.1rem;
+  font-size: clamp(2rem, 3.8vw, 3.3rem);
+  line-height: 1.05;
+}
+
+.cl-arr__copy p {
+  max-width: 30ch;
+  margin: 0 0 1.4rem;
+  color: var(--cl-muted);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.cl-badge {
+  position: relative;
+  width: clamp(88px, 9vw, 118px);
+  aspect-ratio: 1;
+  margin-top: auto;
+  padding-top: 2rem;
+  box-sizing: content-box;
+}
+
+.cl-badge__ring {
+  width: 100%;
+  height: 100%;
+  fill: var(--ink);
+  font-size: 9.2px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+}
+
+.cl-star-sm {
+  position: absolute;
+  top: calc(50% + 1rem);
+  left: 50%;
+  width: 28%;
+  height: 28%;
+  translate: -50% -50%;
+  fill: var(--ink);
+}
+
+.cl-arr__big {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  align-self: start;
+  min-height: clamp(280px, 30vw, 440px);
+  overflow: hidden;
+  border-radius: var(--cl-r);
+  background: #d9d3c9;
+}
+
+/* The arrival photos are transparent, full-length cut-outs — `cover` trims
+   the head and feet, so show the whole outfit inside the tile instead.
+   The padding leaves breathing room so the parallax drift never clips them. */
+.cl-arr__big img,
+.cl-arr__card-img img {
+  object-fit: contain;
+  object-position: center;
+  padding: 14%;
+}
+
+.cl-bagbtn {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(0.8rem, 1.6vw, 1.3rem);
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  translate: -50% 0;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  background: var(--dark);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.35s var(--e-out);
+}
+
+.cl-bagbtn:hover {
+  background: var(--accent-deep);
+}
+
+.cl-arr__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--cl-r);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.cl-arr__card-img {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 240px;
+  overflow: hidden;
+  background: #d9d3c9;
+}
+
+.cl-arr__card-body {
+  padding: clamp(0.9rem, 1.6vw, 1.4rem);
+}
+
+.cl-arr__card-body h3 {
+  font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+  line-height: 1.25;
+}
+
+.cl-arr__card-body b {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-arr__card-body p {
+  margin: 0.9rem 0 0.5rem;
+  color: var(--cl-muted);
+  font-size: 0.7rem;
+}
+
+.cl-arr__card-foot {
+  margin-top: 1rem;
+}
+
+.cl-shopnow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cl-shopnow span {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--dark);
+  color: #fff;
+  font-size: 0.7rem;
+  transition:
+    background 0.35s var(--e-out),
+    transform 0.35s var(--e-out);
+}
+
+.cl-shopnow:hover span {
+  background: var(--accent-deep);
+  transform: translateX(3px);
+}
+
+.cl-swatches {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.cl-swatches i {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(20, 17, 15, 0.2);
+  border-radius: 50%;
+}
+
+/* ============================================================
+   THE COLLECTION GRID
+   ============================================================ */
+.cl-grid {
+  padding-top: clamp(4rem, 9vw, 7.5rem);
+  scroll-margin-top: calc(var(--nav-h) + 1rem);
+}
+
+.cl-grid__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+}
+
+.cl-grid__head h2 {
+  margin-top: 0.9rem;
+  font-size: clamp(2.2rem, 4.6vw, 3.8rem);
+  line-height: 1.05;
+}
+
+.cl-count {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: clamp(1.4rem, 3vw, 2.2rem) 0 clamp(1.4rem, 2.5vw, 2rem);
+}
+
+.cl-chip {
+  padding: 0.6rem 1.15rem;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.35s var(--e-out),
+    border-color 0.35s var(--e-out),
+    color 0.35s var(--e-out);
+}
+
+.cl-chip:hover {
+  border-color: var(--dark);
+}
+
+.cl-chip[aria-pressed="true"] {
+  border-color: var(--dark);
+  background: var(--dark);
+  color: #fff;
+}
+
+.cl-products {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.9rem, 1.8vw, 1.5rem);
+}
+
+.cl-prod__media {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--cl-r);
+  background: #d9d3c9;
+}
+
+.cl-prod__media img {
+  transition: transform 1s var(--e-out);
+}
+
+.cl-prod:hover .cl-prod__media img,
+.cl-prod:focus-within .cl-prod__media img {
+  transform: scale(1.06);
+}
+
+.cl-tag {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  z-index: 2;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--dark);
+  color: #fff;
+  font-size: 0.54rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.cl-quick {
+  position: absolute;
+  left: 0.7rem;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transform: translateY(calc(100% + 1rem));
+  transition:
+    transform 0.5s var(--e-out),
+    background 0.35s var(--e-out),
+    color 0.35s var(--e-out);
+}
+
+.cl-prod:hover .cl-quick,
+.cl-prod:focus-within .cl-quick {
+  transform: translateY(0);
+}
+
+.cl-quick:hover {
+  background: var(--dark);
+  color: #fff;
+}
+
+.cl-prod__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.85rem 0 0.5rem;
+}
+
+.cl-prod__row h3 {
+  font-size: clamp(0.92rem, 1.1vw, 1.05rem);
+  line-height: 1.3;
+}
+
+.cl-prod__row b {
+  flex: none;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-empty {
+  margin-top: 1rem;
+  color: var(--cl-muted);
+  font-size: 0.92rem;
+}
+
+/* ============================================================
+   WHY CHOOSE US
+   ============================================================ */
+.cl-why {
+  padding-block: clamp(4rem, 9vw, 7.5rem) clamp(4rem, 8vw, 6.5rem);
+}
+
+.cl-why h2 {
+  margin: 0.9rem 0 clamp(1.8rem, 4vw, 3rem);
+  font-size: clamp(2rem, 4.2vw, 3.4rem);
+  line-height: 1.1;
+}
+
+.cl-why__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+}
+
+.cl-why__ico {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 1.1rem;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  transition:
+    background 0.4s var(--e-out),
+    color 0.4s var(--e-out),
+    transform 0.5s var(--e-out);
+}
+
+.cl-why__ico svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cl-why__item:hover .cl-why__ico {
+  background: var(--dark);
+  color: #fff;
+  transform: rotate(-8deg) scale(1.06);
+}
+
+.cl-why__item h3 {
+  font-size: 1.1rem;
+}
+
+.cl-why__item p {
+  max-width: 24ch;
+  margin: 0.45rem 0 0;
+  color: var(--cl-muted);
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1100px) {
+  .cl-products {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  /* Hero stacks: headline, then the look, then the side card */
+  .cl-hero__inner {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .cl-title__md {
+    white-space: normal;
+  }
+
+  .cl-hero__media {
+    height: clamp(360px, 96vw, 520px);
+    margin-top: 0.5rem;
+  }
+
+  .cl-hero__frame {
+    inset: 0 4% 0 10%;
+  }
+
+  .cl-scribble {
+    left: -4%;
+  }
+
+  .cl-hero__side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .cl-pill {
+    grid-column: 1 / -1;
+    height: 72px;
+  }
+
+  .cl-ctrl {
+    grid-column: 1 / -1;
+  }
+
+  .cl-arr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cl-arr__copy {
+    padding-top: 0;
+  }
+
+  .cl-badge {
+    display: none;
+  }
+
+  .cl-arr__big {
+    min-height: 0;
+    aspect-ratio: 1 / 1;
+  }
+
+  .cl-arr__card-img {
+    min-height: 0;
+    aspect-ratio: 4 / 5;
+    flex: none;
+  }
+
+  .cl-why__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* No hover on touch: keep the bag button visible. */
+@media (hover: none) {
+.cl-view {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cl-view:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: -4px;
+  border-radius: var(--cl-r);
+}
+
+.cl-quick {
+    transform: none;
+    padding: 0.65rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .cl-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .cl-hero__side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cl-band {
+    transform: rotate(-3.2deg);
+  }
+
+  .cl-chip {
+    padding: 0.55rem 0.95rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cl-btn,
+  .cl-chip,
+  .cl-prod__media img,
+  .cl-quick,
+  .cl-link .cl-ico,
+  .cl-why__ico,
+  .cl-pill img {
+    transition: none;
+  }
+}

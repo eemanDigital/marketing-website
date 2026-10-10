@@ -40,15 +40,30 @@ export async function scrollToTarget(target, offset = 96) {
     el.scrollIntoView();
     return;
   }
+  const top = Math.max(
+    0,
+    el.getBoundingClientRect().top + window.scrollY - offset,
+  );
+  // ScrollToPlugin fights the global `html { scroll-behavior: smooth }`
+  // (the browser animates each tick and the tween never lands), so disable
+  // it for the duration of the tween.
+  const html = document.documentElement;
+  const prev = html.style.scrollBehavior;
+  html.style.scrollBehavior = "auto";
+  const restore = () => {
+    html.style.scrollBehavior = prev;
+  };
   try {
     const { gsap } = await getGsap();
+    gsap.killTweensOf(window);
     gsap.to(window, {
       duration: 1.1,
-      scrollTo: { y: el, offsetY: offset, autoKill: true },
+      scrollTo: { y: top, autoKill: false },
       ease: "power3.inOut",
+      onComplete: restore,
     });
   } catch {
-    const top = el.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({ top, behavior: "smooth" });
+    setTimeout(restore, 900);
   }
 }

@@ -1,0 +1,704 @@
+/* ============================================================
+   LOOKBOOK — self-contained section styles.
+   Imported only by src/components/Lookbook.jsx; everything it
+   needs (type, tokens, motion curves) comes from globals.css.
+   ============================================================ */
+
+.lb {
+  --lb-muted: rgba(20, 17, 15, 0.66);
+  --lb-muted-dark: rgba(255, 255, 255, 0.7);
+  --lb-r: clamp(14px, 1.8vw, 24px);
+  --lb-curtain: var(--dark);
+
+  position: relative;
+  overflow-x: clip;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.lb-wrap {
+  width: min(var(--maxw), 100% - var(--gutter) * 2);
+  margin-inline: auto;
+}
+
+.lb-display {
+  font-family: var(--f-serif);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+/* next/image `fill` does not set object-fit, so without this the photos
+   stretch to the box instead of covering it. */
+.lb img {
+  object-fit: cover;
+  object-position: center 12%;
+}
+
+/* ============================================================
+   CURTAIN REVEAL
+   A solid panel sits over the photo and slides away (GSAP tweens
+   --c from 1 to 0). The image itself is never hidden, so lazy
+   loading and IntersectionObserver always see it. The panel only
+   exists once JS has armed the page, so without JS the photos are
+   simply visible.
+   ============================================================ */
+.lb.is-armed [data-curtain]:not(.is-in)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: var(--lb-curtain);
+  pointer-events: none;
+}
+
+.lb.is-armed [data-curtain="x"]:not(.is-in)::after {
+  transform: scaleX(var(--c, 1));
+  transform-origin: right center;
+}
+
+.lb.is-armed [data-curtain="y"]:not(.is-in)::after {
+  transform: scaleY(var(--c, 1));
+  transform-origin: center top;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.lb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1.7rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--f-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.4s var(--e-out),
+    border-color 0.4s var(--e-out),
+    color 0.4s var(--e-out),
+    transform 0.4s var(--e-out);
+}
+
+.lb-btn:hover {
+  transform: translateY(-2px);
+}
+
+.lb-btn:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 3px;
+}
+
+.lb-btn--solid {
+  background: var(--dark);
+  color: #fff;
+}
+
+.lb-btn--solid:hover {
+  background: var(--accent-deep);
+}
+
+.lb-btn--ghost {
+  border-color: var(--dark);
+  color: var(--dark);
+}
+
+.lb-btn--ghost:hover {
+  background: var(--dark);
+  color: #fff;
+}
+
+.lb-btn--light {
+  background: #fff;
+  color: var(--dark);
+}
+
+.lb-btn--light:hover {
+  background: var(--accent-deep);
+  color: #fff;
+}
+
+.lb-btn--outline-light {
+  border-color: rgba(255, 255, 255, 0.7);
+  color: #fff;
+}
+
+.lb-btn--outline-light:hover {
+  background: #fff;
+  color: var(--dark);
+}
+
+.lb-btn--sm {
+  padding: 0.62rem 1.2rem;
+  font-size: 0.62rem;
+}
+
+/* ============================================================
+   HERO — giant stacked headline. The second line sits on a notch
+   that is carved out of the photo's corner.
+   ============================================================ */
+.lb-hero {
+  padding-top: clamp(2.5rem, 5vw, 4.5rem);
+  padding-bottom: clamp(2.5rem, 6vw, 5rem);
+  background: var(--bg);
+}
+
+.lb-hero__inner {
+  position: relative;
+  display: flex;
+  min-height: clamp(540px, 53vw, 780px);
+}
+
+.lb-hero__media {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 52%;
+  overflow: hidden;
+  border-radius: var(--lb-r);
+  background: #d9d4cc;
+}
+
+.lb-hero__media img {
+  object-position: center 20%;
+}
+
+.lb-hero__text {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.lb-hero__tag {
+  align-self: flex-start;
+  margin-bottom: clamp(0.5rem, 1.2vw, 1rem);
+  color: var(--accent-deep);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.lb-hero__line {
+  overflow: hidden;
+  padding-bottom: 0.04em;
+}
+
+.lb-hero__line > span {
+  display: block;
+  font-size: clamp(3rem, 9vw, 10rem);
+  line-height: 0.92;
+  will-change: transform;
+}
+
+/* The notch: same colour as the page, rounded corner, sits over the
+   photo's lower-left so the headline appears to cut into it. */
+.lb-hero__notch {
+  position: relative;
+  width: 64%;
+  margin-top: auto;
+  padding: 0 clamp(1rem, 2.2vw, 2.25rem) 0 0;
+  background: var(--bg);
+  border-top-right-radius: var(--lb-r);
+}
+
+.lb-hero__copy {
+  padding-top: clamp(0.9rem, 1.8vw, 1.4rem);
+}
+
+.lb-hero__copy p {
+  max-width: 46ch;
+  color: var(--lb-muted);
+  font-size: clamp(0.88rem, 1.05vw, 1rem);
+  line-height: 1.75;
+}
+
+.lb-hero__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: clamp(1rem, 2vw, 1.5rem);
+}
+
+/* ============================================================
+   MARQUEE
+   ============================================================ */
+.lb-marquee {
+  overflow: hidden;
+  padding: clamp(0.9rem, 2vw, 1.5rem) 0;
+  background: var(--dark);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.lb-marquee__track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.lb-marquee__group {
+  display: flex;
+  flex: none;
+}
+
+.lb-marquee__group > span {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(1rem, 2vw, 1.8rem);
+  padding-inline: clamp(1rem, 2vw, 1.8rem);
+  font-size: clamp(1.5rem, 3.4vw, 2.6rem);
+  letter-spacing: 0.02em;
+}
+
+.lb-star {
+  width: 0.62em;
+  height: 0.62em;
+  flex: none;
+  fill: var(--accent-deep);
+}
+
+/* ============================================================
+   TILES — two portrait cards, then two promo cards stacked in the
+   wide right-hand column.
+   ============================================================ */
+.lb-tiles-wrap {
+  padding-top: clamp(2.5rem, 6vw, 5rem);
+}
+
+.lb-tiles {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.75fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.75rem, 1.4vw, 1.1rem);
+  height: clamp(360px, 44vw, 580px);
+}
+
+.lb-tile {
+  position: relative;
+  grid-row: 1 / 3;
+  overflow: hidden;
+  border-radius: var(--lb-r);
+  background: var(--bg-2);
+}
+
+.lb-tile img {
+  object-position: center 10%;
+}
+
+.lb-tile .lb-btn {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(0.9rem, 1.8vw, 1.5rem);
+  z-index: 2;
+  transform: translateX(-50%);
+}
+
+.lb-tile .lb-btn:hover {
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.lb-promo {
+  position: relative;
+  grid-column: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--lb-r);
+  background: var(--bg-2);
+}
+
+.lb-promo__copy {
+  align-self: center;
+  padding: clamp(1rem, 2.4vw, 2.25rem);
+}
+
+.lb-promo__copy small {
+  display: block;
+  color: var(--accent-deep);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.lb-promo__copy h3 {
+  margin: 0.6rem 0 1.1rem;
+  font-family: var(--f-serif);
+  font-size: clamp(1rem, 1.8vw, 1.55rem);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.lb-promo__media {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.lb-promo__media img {
+  object-position: center 8%;
+}
+
+/* ============================================================
+   THE EDIT
+   ============================================================ */
+.lb-edit {
+  padding-top: clamp(3.5rem, 8vw, 7rem);
+  scroll-margin-top: calc(var(--nav-h) + 1rem);
+}
+
+.lb-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 3rem;
+}
+
+.lb-head h2 {
+  margin: 0;
+  font-size: clamp(2.4rem, 6vw, 4.8rem);
+}
+
+.lb-head p {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--lb-muted);
+  font-size: clamp(0.85rem, 1vw, 0.95rem);
+  line-height: 1.75;
+  text-align: right;
+}
+
+.lb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: clamp(1.4rem, 3vw, 2.2rem) 0 clamp(1.4rem, 2.5vw, 2rem);
+}
+
+.lb-chip {
+  padding: 0.62rem 1.2rem;
+  border: 1px solid var(--dark);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.35s var(--e-out),
+    color 0.35s var(--e-out);
+}
+
+.lb-chip:hover {
+  background: rgba(20, 17, 15, 0.07);
+}
+
+.lb-chip[aria-pressed="true"] {
+  background: var(--dark);
+  color: #fff;
+}
+
+.lb-chip:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 3px;
+}
+
+/* Four columns on desktop, so a short filter result keeps the same
+   card size instead of stretching. */
+.lb-products {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.75rem, 1.4vw, 1.1rem);
+}
+
+.lb-prod__media {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--lb-r);
+  background: var(--bg-2);
+}
+
+.lb-prod__media img {
+  object-position: center 8%;
+  transition: transform 1s var(--e-out);
+}
+
+.lb-prod:hover .lb-prod__media img,
+.lb-prod:focus-within .lb-prod__media img {
+  transform: scale(1.06);
+}
+
+/* Whole photo darkens and the two buttons stack in the middle. */
+.lb-prod__over {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  background: rgba(20, 17, 15, 0.55);
+  opacity: 0;
+  transition: opacity 0.4s var(--e-out);
+}
+
+.lb-prod__over .lb-btn {
+  min-width: 8.6rem;
+  transform: translateY(14px);
+  transition:
+    transform 0.5s var(--e-out),
+    background 0.35s var(--e-out),
+    color 0.35s var(--e-out);
+}
+
+.lb-prod__over .lb-btn + .lb-btn {
+  transition-delay: 0.06s;
+}
+
+.lb-prod:hover .lb-prod__over,
+.lb-prod:focus-within .lb-prod__over {
+  opacity: 1;
+}
+
+.lb-prod:hover .lb-prod__over .lb-btn,
+.lb-prod:focus-within .lb-prod__over .lb-btn {
+  transform: translateY(0);
+}
+
+.lb-prod__over .lb-btn:hover {
+  transform: translateY(-2px);
+}
+
+.lb-prod__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+  padding-inline: 0.15rem;
+}
+
+.lb-prod__row h3 {
+  margin: 0;
+  font-size: clamp(0.78rem, 0.95vw, 0.92rem);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.lb-prod__row b {
+  flex: none;
+  font-size: clamp(0.78rem, 0.95vw, 0.9rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-empty {
+  margin-top: 1rem;
+  color: var(--lb-muted);
+  font-size: 0.92rem;
+}
+
+/* ============================================================
+   SPLIT HEAD — small copy bottom-left, huge heading right.
+   ============================================================ */
+.lb-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem 3rem;
+  padding-top: clamp(3.5rem, 8vw, 7rem);
+}
+
+.lb-split p {
+  margin: 0;
+  max-width: 40ch;
+  color: var(--lb-muted);
+  font-size: clamp(0.82rem, 1vw, 0.92rem);
+  line-height: 1.75;
+}
+
+.lb-split h2 {
+  margin: 0 0 0 auto;
+  font-size: clamp(2.4rem, 6.6vw, 5.6rem);
+  text-align: right;
+}
+
+/* ============================================================
+   DARK FEATURE
+   ============================================================ */
+.lb-dark {
+  --lb-curtain: #2c2723;
+  margin-top: clamp(3.5rem, 8vw, 7rem);
+  padding: clamp(3rem, 7vw, 6rem) 0;
+  background: var(--dark);
+  color: #fff;
+}
+
+.lb-feature {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(1.75rem, 5vw, 5rem);
+  align-items: center;
+}
+
+/* Portrait frame so a full-length suit is not cropped to a strip. */
+.lb-feature__media {
+  position: relative;
+  width: 100%;
+  max-height: 82vh;
+  aspect-ratio: 4 / 4.9;
+  overflow: hidden;
+  border-radius: var(--lb-r);
+  background: #23201d;
+}
+
+.lb-feature__media img {
+  object-position: center 10%;
+}
+
+.lb-feature__copy h2 {
+  margin: 0;
+  font-size: clamp(2.6rem, 6vw, 5rem);
+}
+
+.lb-feature__copy p {
+  margin: clamp(1rem, 2vw, 1.5rem) 0 clamp(1.4rem, 2.5vw, 2rem);
+  max-width: 50ch;
+  color: var(--lb-muted-dark);
+  font-size: clamp(0.88rem, 1.05vw, 1rem);
+  line-height: 1.8;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  /* Hero stacks: headline block first, photo underneath. */
+  .lb-hero__inner {
+    display: block;
+    min-height: 0;
+  }
+
+  .lb-hero__media {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: clamp(300px, 82vw, 480px);
+    margin-top: 1.5rem;
+  }
+
+  .lb-hero__text {
+    display: block;
+  }
+
+  .lb-hero__notch {
+    width: 100%;
+    padding-right: 0;
+    border-radius: 0;
+  }
+
+  .lb-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+    height: auto;
+  }
+
+  .lb-tile {
+    grid-row: auto;
+    aspect-ratio: 3 / 4;
+  }
+
+  .lb-promo {
+    grid-column: 1 / -1;
+    min-height: 210px;
+  }
+
+  .lb-head p {
+    text-align: left;
+  }
+
+  .lb-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lb-split h2 {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .lb-feature {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lb-feature__media {
+    aspect-ratio: 4 / 4.4;
+    max-height: none;
+  }
+}
+
+/* No hover on touch, so the cart buttons sit along the bottom. */
+@media (hover: none) {
+  .lb-prod__over {
+    top: auto;
+    flex-direction: row;
+    justify-content: center;
+    padding: 2rem 0.5rem 0.7rem;
+    background: linear-gradient(to top, rgba(20, 17, 15, 0.7), transparent);
+    opacity: 1;
+  }
+
+  .lb-prod__over .lb-btn {
+    min-width: 0;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.58rem;
+    transform: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .lb-promo {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+  }
+
+  .lb-btn {
+    padding: 0.8rem 1.35rem;
+  }
+
+  .lb-chip {
+    padding: 0.55rem 0.95rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-btn,
+  .lb-chip,
+  .lb-prod__media img,
+  .lb-prod__over,
+  .lb-prod__over .lb-btn {
+    transition: none;
+  }
+}

@@ -19,10 +19,9 @@ export const metadata = {
   description: SITE.description,
   keywords: [
     "Nigerian native dress",
-    "Aso Oke",
-    "Adire",
-    "Ankara",
-    "agbada",
+    "kaftan",
+    "safari suit",
+    "embroidered kaftan",
     "Lagos tailor",
     "made to measure",
     "Nigerian fashion",

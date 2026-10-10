@@ -585,12 +585,14 @@ ul {
 
 .nav__link:hover::after,
 .nav__link:focus-visible::after,
-.nav__link.is-active::after {
+.nav__link.is-active::after,
+.nav__link[aria-current="page"]::after {
   transform: scaleX(1);
   transform-origin: left center;
 }
 
-.nav__link.is-active {
+.nav__link.is-active,
+.nav__link[aria-current="page"] {
   color: var(--accent-deep);
 }
 
@@ -2186,25 +2188,21 @@ ul {
 }
 
 /* ============================================================
-     9C. CLOTH HERO — rounded panel, centred headline, and a strip
-     of worn pieces that slide left in a cascade. Curved white
-     edges (the strip's ::before / ::after) carve the photos into
-     an arc at the top and bottom.
-
-     REPLACE the whole existing 9C block with this one, from the
-     ".cloth-hero {" rule down to the last "@media (max-width: 620px)"
-     rule that targets .cloth-hero__*. Nothing else in the file
-     needs to change.
+     9C. CLOTH HERO — full-bleed panel, centred headline, and a
+     strip of worn pieces that slide left in a cascade. The panel
+     fills the section edge to edge, runs up behind the fixed nav
+     with no top gap and stretches to the full viewport height.
+     Curved white edges (the strip's ::before / ::after) carve the
+     photos into an arc at the top and bottom.
      ============================================================ */
+
+/* Section: no padding, the panel owns the whole viewport */
 .cloth-hero {
   position: relative;
   min-height: 100vh;
   min-height: 100svh;
-  display: grid;
-  place-items: center;
-  padding-top: calc(var(--nav-h) + clamp(1rem, 3vw, 2rem));
-  padding-bottom: clamp(1.5rem, 4vw, 3rem);
-  padding-inline: var(--gutter);
+  display: block;
+  padding: 0;
   overflow: hidden;
 }
 
@@ -2222,23 +2220,29 @@ ul {
     radial-gradient(46% 46% at 6% 90%, rgba(20, 17, 15, 0.07), transparent 70%);
 }
 
+/* Panel: full width, full height, no radius, no shadow */
 .cloth-hero__panel {
   position: relative;
   z-index: 1;
-  width: min(1180px, 100%);
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-2);
-  border-radius: clamp(20px, 3vw, 40px);
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
-  box-shadow:
-    0 44px 90px rgba(20, 17, 15, 0.14),
-    0 3px 14px rgba(20, 17, 15, 0.06);
 }
 
 /* -------- Headline -------- */
+/* The nav is fixed, so the copy clears it with its own top padding */
 .cloth-hero__copy {
   position: relative;
   z-index: 4;
-  padding: clamp(2rem, 4.5vw, 3.5rem) 1.25rem clamp(3.75rem, 7.5vw, 5.75rem);
+  flex: none;
+  padding: calc(var(--nav-h) + clamp(1.5rem, 3.5vw, 3rem)) var(--gutter)
+    clamp(3.75rem, 7.5vw, 5.75rem);
   text-align: center;
 }
 
@@ -2277,9 +2281,12 @@ ul {
 }
 
 /* -------- The strip -------- */
+/* The strip takes whatever height is left between copy and bar */
 .cloth-hero__strip {
   position: relative;
-  height: clamp(250px, 38vw, 430px);
+  flex: 1 1 auto;
+  min-height: clamp(250px, 38vw, 430px);
+  height: auto;
   margin-top: calc(clamp(2.5rem, 5vw, 4rem) * -1);
   overflow: hidden;
 }
@@ -2361,12 +2368,12 @@ ul {
 .cloth-hero__bar {
   position: relative;
   z-index: 4;
+  flex: none;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 1rem;
-  padding: clamp(0.5rem, 1.4vw, 1rem) clamp(1.25rem, 4vw, 3rem)
-    clamp(1.25rem, 3vw, 2.25rem);
+  padding: clamp(0.5rem, 1.4vw, 1rem) var(--gutter) clamp(1.25rem, 3vw, 2.25rem);
 }
 
 .cloth-hero__proof {
@@ -2488,18 +2495,18 @@ ul {
     min-height: auto;
   }
 
+  .cloth-hero__panel {
+    min-height: 100svh;
+  }
+
   .cloth-hero__strip {
-    height: clamp(240px, 56vw, 380px);
+    min-height: clamp(240px, 56vw, 380px);
   }
 }
 
 @media (max-width: 620px) {
-  .cloth-hero {
-    padding-inline: 0.75rem;
-  }
-
   .cloth-hero__strip {
-    height: clamp(260px, 82vw, 340px);
+    min-height: clamp(260px, 82vw, 340px);
   }
 
   .cloth-hero__bar {
@@ -2513,6 +2520,245 @@ ul {
 
   .cloth-hero__badge {
     display: none;
+  }
+}
+
+/* ============================================================
+     9D. FEATURED COLLECTION — a fan of cards: the selected piece
+     sits centre stage and its neighbours narrow away on both
+     sides. Card x / width / height are written by GSAP from the
+     component, so the CSS only handles look and feel.
+     ============================================================ */
+.fc {
+  position: relative;
+  padding: var(--sect-y) var(--gutter);
+  background: var(--bg);
+}
+
+.fc__panel {
+  width: min(1180px, 100%);
+  margin-inline: auto;
+  padding: clamp(1.5rem, 4vw, 3.25rem) clamp(1rem, 3.5vw, 3rem)
+    clamp(2.75rem, 5vw, 4.25rem);
+  background: var(--bg-2);
+  border-radius: clamp(18px, 2.6vw, 32px);
+  box-shadow: 0 30px 70px rgba(20, 17, 15, 0.07);
+}
+
+.fc__title {
+  margin-bottom: clamp(1.5rem, 3.6vw, 2.75rem);
+  text-align: center;
+  font-family: var(--f-serif);
+  font-size: clamp(1.4rem, 3.4vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.fc__title-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.12em;
+}
+
+.fc__title-line > span {
+  display: block;
+  will-change: transform;
+}
+
+/* -------- Stage -------- */
+.fc__stage {
+  position: relative;
+  height: clamp(320px, 46vw, 560px);
+  margin-bottom: 1.75rem;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Hold the cards back until JS has measured the stage. */
+.fc__stage:not(.is-ready) .fc__card {
+  visibility: hidden;
+}
+
+.fc__card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 20%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: clamp(6px, 0.9vw, 12px);
+  background: #c9ced6;
+  cursor: pointer;
+  will-change: transform, width, height, opacity;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fc__card img {
+  object-fit: cover;
+  object-position: center 14%;
+  filter: saturate(0.82) brightness(0.97);
+  transition:
+    filter 0.7s var(--e-out),
+    transform 0.9s var(--e-out);
+  pointer-events: none;
+}
+
+.fc__card.is-active {
+  cursor: default;
+  z-index: 3;
+}
+
+.fc__card.is-active img {
+  filter: none;
+}
+
+.fc__card:not(.is-active):hover img,
+.fc__card:not(.is-active):focus-visible img {
+  filter: saturate(1) brightness(1);
+  transform: scale(1.06);
+}
+
+.fc__card:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 3px;
+}
+
+/* -------- Overlay on the selected card -------- */
+.fc__info {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  text-align: left;
+  background: linear-gradient(
+    to bottom,
+    rgba(20, 17, 15, 0.1),
+    transparent 24%,
+    transparent 70%,
+    rgba(20, 17, 15, 0.28)
+  );
+}
+
+.fc__tag {
+  position: absolute;
+  top: clamp(0.6rem, 1.4vw, 1rem);
+  left: clamp(0.6rem, 1.4vw, 1rem);
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--ink);
+  font-size: clamp(0.46rem, 0.8vw, 0.62rem);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.fc__vert {
+  position: absolute;
+  top: clamp(1.9rem, 4vw, 3.25rem);
+  right: clamp(0.55rem, 1.3vw, 1.1rem);
+  display: flex;
+  gap: 0.5rem;
+  writing-mode: vertical-rl;
+  color: #fff;
+  text-shadow: 0 1px 12px rgba(20, 17, 15, 0.5);
+}
+
+.fc__vert small {
+  font-size: clamp(0.46rem, 0.8vw, 0.62rem);
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.fc__vert b {
+  font-family: var(--f-serif);
+  font-size: clamp(0.62rem, 1.15vw, 0.95rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.fc__price {
+  position: absolute;
+  right: clamp(0.6rem, 1.4vw, 1.1rem);
+  bottom: clamp(0.7rem, 1.6vw, 1.2rem);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  color: #fff;
+  text-shadow: 0 1px 10px rgba(20, 17, 15, 0.5);
+}
+
+.fc__price small {
+  font-size: clamp(0.4rem, 0.7vw, 0.55rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.fc__price b {
+  font-size: clamp(0.55rem, 1vw, 0.82rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------- Bag button: sits half over the selected card's edge -------- */
+.fc__bag {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: clamp(38px, 4.4vw, 52px);
+  height: clamp(38px, 4.4vw, 52px);
+  margin: 0 0 calc(clamp(38px, 4.4vw, 52px) / -2) calc(clamp(38px, 4.4vw, 52px) / -2);
+  border: 3px solid var(--bg-2);
+  border-radius: 50%;
+  background: var(--dark);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(20, 17, 15, 0.3);
+  cursor: pointer;
+  transition:
+    background 0.35s var(--e-out),
+    box-shadow 0.35s var(--e-out);
+}
+
+.fc__bag .ico {
+  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+}
+
+.fc__bag:hover,
+.fc__bag:focus-visible {
+  background: var(--accent-deep);
+  box-shadow: 0 14px 30px rgba(163, 133, 92, 0.45);
+}
+
+@media (max-width: 560px) {
+  .fc__panel {
+    padding-inline: 0.75rem;
+  }
+
+  .fc__stage {
+    height: clamp(280px, 78vw, 360px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc__card img {
+    transition: none;
   }
 }
 
@@ -4676,7 +4922,6 @@ ul {
   left: 50%;
   bottom: 1.25rem;
   z-index: var(--z-top);
-  translate: -50% 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -4687,7 +4932,7 @@ ul {
   background: var(--dark);
   color: #fff;
   box-shadow: 0 24px 60px rgba(20, 17, 15, 0.35);
-  transform: translateY(150%);
+  transform: translate(-50%, 150%);
   opacity: 0;
   transition:
     transform 0.6s var(--e-out),
@@ -4695,7 +4940,7 @@ ul {
 }
 
 .cookie.is-ready {
-  transform: translateY(0);
+  transform: translate(-50%, 0);
   opacity: 1;
 }
 
@@ -4927,6 +5172,39 @@ section[id] {
   .lookbook__hint {
     display: none;
   }
+
+  /* Story reflows: card first, then the two images side by side below it,
+     so they no longer sit behind the frosted card. */
+  .story {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: center;
+    gap: clamp(1rem, 4vw, 1.75rem);
+    min-height: auto;
+    padding-block: clamp(4.5rem, 14vw, 7rem);
+  }
+
+  .story__card {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: min(620px, 100%);
+    justify-self: center;
+  }
+
+  .story__float {
+    position: static;
+    grid-row: 2;
+    width: min(100%, 280px);
+    justify-self: center;
+  }
+
+  .story__float--a {
+    grid-column: 1;
+  }
+
+  .story__float--b {
+    grid-column: 2;
+  }
 }
 
 @media (max-width: 620px) {
@@ -4958,8 +5236,7 @@ section[id] {
   }
 
   .story__float {
-    width: 34vw;
-    opacity: 0.75;
+    width: min(100%, 220px);
   }
 
   .footer__grid {

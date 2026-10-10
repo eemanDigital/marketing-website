@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { useStore } from "@/components/StoreProvider";
 import { NAV_LINKS, MENU_LINKS } from "@/lib/site";
-import { getGsap, scrollToTarget } from "@/lib/gsap";
+import { getGsap } from "@/lib/gsap";
+import { navigateTo, consumePendingScroll } from "@/lib/nav";
 
 export default function SiteHeader() {
   const { items, saved, openPanel } = useStore();
+  const router = useRouter();
+  const pathname = usePathname();
   const headerRef = useRef(null);
   const progressRef = useRef(null);
   const menuRef = useRef(null);
@@ -49,8 +53,13 @@ export default function SiteHeader() {
   }, []);
 
   useEffect(() => {
-    const links = Array.from(document.querySelectorAll(".nav__link[href^='#']"));
-    const sections = links
+    const links = Array.from(document.querySelectorAll(".nav__link"));
+    links.forEach((l) => l.classList.remove("is-active"));
+    if (pathname !== "/") return;
+    const hashLinks = links.filter((l) =>
+      (l.getAttribute("href") || "").startsWith("#"),
+    );
+    const sections = hashLinks
       .map((l) => document.querySelector(l.getAttribute("href")))
       .filter(Boolean);
     if (!sections.length) return;
@@ -58,7 +67,7 @@ export default function SiteHeader() {
       (entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
-          links.forEach((l) =>
+          hashLinks.forEach((l) =>
             l.classList.toggle(
               "is-active",
               l.getAttribute("href") === `#${entry.target.id}`,
@@ -70,7 +79,12 @@ export default function SiteHeader() {
     );
     sections.forEach((s) => io.observe(s));
     return () => io.disconnect();
-  }, []);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname !== "/") return;
+    return consumePendingScroll();
+  }, [pathname]);
 
   useEffect(() => {
     const menu = menuRef.current;
@@ -145,13 +159,13 @@ export default function SiteHeader() {
   const handleNavClick = (e, href) => {
     e.preventDefault();
     if (menuOpen) closeMenu();
-    scrollToTarget(href);
+    navigateTo(router, href);
   };
 
   const showSaved = (e) => {
     e.preventDefault();
     window.dispatchEvent(new CustomEvent("fash:show-saved"));
-    scrollToTarget("#shop");
+    router.push("/collection?view=saved");
   };
 
   return (
@@ -173,6 +187,7 @@ export default function SiteHeader() {
                 key={l.href}
                 className="nav__link"
                 href={l.href}
+                aria-current={l.href === pathname ? "page" : undefined}
                 onClick={(e) => handleNavClick(e, l.href)}
               >
                 {l.label}

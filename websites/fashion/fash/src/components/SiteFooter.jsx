@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { SITE } from "@/lib/site";
-import { getGsap, prefersReducedMotion, scrollToTarget } from "@/lib/gsap";
+import { getGsap, prefersReducedMotion } from "@/lib/gsap";
+import { navigateTo } from "@/lib/nav";
 import { useStore } from "@/components/StoreProvider";
 
 function Newsletter() {
@@ -117,19 +119,21 @@ function Newsletter() {
 }
 
 const SHOP_LINKS = [
-  { label: "Agbada", href: "#shop" },
-  { label: "Occasion Wear", href: "#shop" },
-  { label: "Fabrics", href: "#essentials" },
-  { label: "Menswear", href: "#shop" },
+  { label: "Kaftans", href: "/collection?cat=Kaftan" },
+  { label: "Safari Suits", href: "/collection?cat=Safari%20Suit" },
+  { label: "Tunics", href: "/collection?cat=Tunic" },
+  { label: "Featured", href: "#featured" },
 ];
 
 export default function SiteFooter() {
   const { openPanel } = useStore();
+  const router = useRouter();
+  const pathname = usePathname();
   const year = new Date().getFullYear();
 
   const nav = (e, href) => {
     e.preventDefault();
-    scrollToTarget(href);
+    navigateTo(router, href);
   };
 
   return (
@@ -149,7 +153,11 @@ export default function SiteFooter() {
             <ul className="footer__links">
               {SHOP_LINKS.map((l) => (
                 <li key={l.label}>
-                  <a href={l.href} onClick={(e) => nav(e, l.href)}>
+                  <a
+                  href={l.href}
+                  aria-current={l.href === pathname ? "page" : undefined}
+                  onClick={(e) => nav(e, l.href)}
+                >
                     {l.label}
                   </a>
                 </li>

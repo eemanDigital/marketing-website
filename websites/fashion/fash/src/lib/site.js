@@ -1,12 +1,23 @@
+const FALLBACK_URL = "http://localhost:3000";
+
+function resolveSiteUrl() {
+  const env = typeof process !== "undefined" ? process.env : {};
+  const explicit = env.NEXT_PUBLIC_SITE_URL;
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const vercel = env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL;
+  if (vercel) return `https://${vercel}`;
+  return FALLBACK_URL;
+}
+
 export const SITE = {
   name: "Fash Clothings",
   short: "FASH",
-  url: "https://fash.example.com",
-  title: "FASH — Nigerian Native Dresses | Aso Oke, Adire & Ankara",
+  url: resolveSiteUrl(),
+  title: "FASH — Nigerian Native Dresses | Kaftans & Safari Suits",
   description:
-    "FASH — Premium Nigerian native dresses. Elegant Aso Oke, Ankara, Adire, and contemporary Nigerian fashion for every occasion.",
+    "FASH — Premium Nigerian native dresses. Hand-finished kaftans, safari suits and contemporary Nigerian fashion for every occasion.",
   ogDescription:
-    "Premium Aso Oke, Adire, Ankara and lace, cut and finished by our Lagos tailors. Festive 2025 collection, alterations included.",
+    "Hand-finished kaftans, safari suits and tunics, cut and finished by our Lagos tailors. Festive 2025 collection, alterations included.",
   email: "hello@fash.example.com",
   phone: "+234-700-328-4277",
   phoneHref: "tel:+2347003284277",
@@ -28,18 +39,18 @@ export const SITE = {
 };
 
 export const NAV_LINKS = [
-  { label: "Collection", href: "#lookbook" },
-  { label: "Shop", href: "#shop" },
-  { label: "Essentials", href: "#essentials" },
+  { label: "Lookbook", href: "#lookbook" },
+  { label: "Shop", href: "/collection" },
   { label: "Brand", href: "#story" },
+  { label: "Featured", href: "#featured" },
   { label: "Contact", href: "#care" },
 ];
 
 export const MENU_LINKS = [
-  { label: "Collection", href: "#lookbook" },
-  { label: "Shop", href: "#shop" },
-  { label: "Essentials", href: "#essentials" },
+  { label: "Lookbook", href: "#lookbook" },
+  { label: "Shop", href: "/collection" },
   { label: "Brand", href: "#story" },
+  { label: "Featured", href: "#featured" },
   { label: "Reviews", href: "#reviews" },
   { label: "Contact", href: "#care" },
 ];
@@ -87,7 +98,7 @@ export function buildJsonLd() {
         logo: `${SITE.url}/icon.svg`,
         image: `${SITE.url}${SITE.ogImage.src}`,
         description:
-          "Lagos atelier making premium Nigerian native dress: Aso Oke, Adire, Ankara and lace, with alterations included.",
+          "Lagos atelier making premium Nigerian native dress: kaftans, safari suits and tunics, with alterations included.",
         email: SITE.email,
         telephone: SITE.phone,
         priceRange: SITE.priceRange,

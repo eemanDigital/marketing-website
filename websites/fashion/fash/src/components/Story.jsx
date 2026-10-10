@@ -14,6 +14,9 @@ export default function Story() {
     const word = wordRef.current;
     if (!section || !word) return;
     if (prefersReducedMotion()) return;
+    /* On small screens the layout reflows the floats into normal flow; the
+       scroll parallax would drag them back over the card, so skip it. */
+    if (window.matchMedia("(max-width: 820px)").matches) return;
 
     let cancelled = false;
     let ctx = null;

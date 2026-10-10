@@ -1,13 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { useStore } from "@/components/StoreProvider";
 import { FILTERS, PRODUCTS } from "@/lib/catalog";
 import { SIZE_GUIDE } from "@/lib/site";
 import { naira } from "@/lib/format";
-import { scrollToTarget } from "@/lib/gsap";
 
 const SIZES = ["S", "M", "L", "XL", "XXL"];
 
@@ -206,7 +206,7 @@ function SearchOverlay() {
         <input
           id="searchInput"
           type="search"
-          placeholder="Search Aso Oke, agbada, Adire…"
+          placeholder="Search kaftans, safari suits…"
           value={q}
           ref={inputRef}
           onChange={(e) => setQ(e.target.value)}
@@ -239,7 +239,7 @@ function SearchOverlay() {
         ))}
         {results.length === 0 && (
           <p className="empty-note">
-            No pieces match “{q}”. Try “adire” or “agbada”.
+            No pieces match “{q}”. Try “kaftan” or “safari”.
           </p>
         )}
       </div>
@@ -252,6 +252,7 @@ function SearchOverlay() {
 
 function CartLines() {
   const { items, setQty, removeItem, closePanel, openQuickView } = useStore();
+  const router = useRouter();
 
   if (items.length === 0) {
     return (
@@ -263,7 +264,7 @@ function CartLines() {
           type="button"
           onClick={() => {
             closePanel();
-            scrollToTarget("#shop");
+            router.push("/collection");
           }}
         >
           <span>Browse the edit</span>
