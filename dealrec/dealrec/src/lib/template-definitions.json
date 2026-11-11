@@ -1,0 +1,194 @@
+[
+  {
+    "slug": "personal-loan",
+    "name": "Personal loan",
+    "shortDescription": "Lend or borrow money with clear repayment terms.",
+    "description": "Records the principal, repayment date, interest position, payment method and what happens if repayment is missed.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Lender",
+    "counterpartyRole": "Borrower",
+    "amountField": "principal",
+    "fields": [
+      { "key": "principal", "label": "Loan principal", "type": "currency", "required": true, "placeholder": "300000", "help": "The amount being lent, in naira." },
+      { "key": "repaymentDate", "label": "Full repayment date", "type": "date", "required": true, "help": "The date the loan should be fully repaid." },
+      { "key": "interest", "label": "Interest", "type": "text", "required": true, "placeholder": "Interest-free", "help": "State the interest rate, or write 'Interest-free'." },
+      { "key": "repaymentSchedule", "label": "Repayment schedule", "type": "textarea", "required": false, "placeholder": "₦100,000 on 30 June and ₦200,000 on 31 July", "help": "Optional. List instalments if repayment is not a single payment." },
+      { "key": "paymentMethod", "label": "Payment method", "type": "text", "required": true, "placeholder": "Bank transfer to the lender's account", "help": "How the borrower should pay." },
+      { "key": "defaultSteps", "label": "If repayment is missed", "type": "textarea", "required": false, "placeholder": "The borrower will be contacted and given 7 days to pay.", "help": "Describe the practical next steps. This does not replace legal advice." }
+    ]
+  },
+  {
+    "slug": "sale-of-goods",
+    "name": "Sale of goods",
+    "shortDescription": "Record the item, price, condition and delivery terms.",
+    "description": "Useful for phones, electronics, furniture, vehicles and other goods where condition, deposit and delivery matter.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Seller",
+    "counterpartyRole": "Buyer",
+    "amountField": "price",
+    "fields": [
+      { "key": "itemDescription", "label": "Item description", "type": "textarea", "required": true, "placeholder": "iPhone 13, 128GB, blue", "help": "Describe the item clearly, including model or identifying details." },
+      { "key": "condition", "label": "Condition", "type": "select", "required": true, "options": ["New", "Like new", "Used - good", "Used - fair", "For parts"], "help": "Describe the condition honestly." },
+      { "key": "price", "label": "Total price", "type": "currency", "required": true, "placeholder": "450000" },
+      { "key": "deposit", "label": "Deposit paid", "type": "currency", "required": false, "placeholder": "0", "help": "Leave blank if no deposit is paid." },
+      { "key": "balance", "label": "Balance due", "type": "currency", "required": false, "placeholder": "450000" },
+      { "key": "deliveryDate", "label": "Delivery / handover date", "type": "date", "required": true },
+      { "key": "deliveryDetails", "label": "Delivery details", "type": "text", "required": false, "placeholder": "Handover at Ikeja on 20 June", "help": "Where and how the item will be handed over." },
+      { "key": "inspection", "label": "Inspection terms", "type": "textarea", "required": false, "placeholder": "Buyer may inspect the item before taking delivery.", "help": "Explain when the buyer can inspect the item." }
+    ]
+  },
+  {
+    "slug": "service-agreement",
+    "name": "Service / freelance agreement",
+    "shortDescription": "Put scope, deliverables, fees and deadlines in writing.",
+    "description": "For freelancers, consultants and service providers who need a clear scope, milestones and payment dates.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Service provider",
+    "counterpartyRole": "Client",
+    "amountField": "fee",
+    "fields": [
+      { "key": "scope", "label": "Scope of work", "type": "textarea", "required": true, "placeholder": "Design a 5-page marketing website", "help": "Say exactly what work is included." },
+      { "key": "deliverables", "label": "Deliverables", "type": "textarea", "required": true, "placeholder": "Homepage, 4 inner pages, mobile layout", "help": "List what the client will receive." },
+      { "key": "milestones", "label": "Milestones and dates", "type": "textarea", "required": false, "placeholder": "Design draft by 20 June; final files by 5 July" },
+      { "key": "fee", "label": "Total fee", "type": "currency", "required": true, "placeholder": "250000" },
+      { "key": "revisions", "label": "Revision limit", "type": "text", "required": false, "placeholder": "Two rounds of revisions" },
+      { "key": "deadline", "label": "Final deadline", "type": "date", "required": true },
+      { "key": "acceptance", "label": "Acceptance process", "type": "textarea", "required": false, "placeholder": "The client will confirm acceptance within 5 days of delivery." }
+    ]
+  },
+  {
+    "slug": "deposit-balance",
+    "name": "Deposit and balance agreement",
+    "shortDescription": "Record what a deposit covers and when the balance is due.",
+    "description": "Useful when a buyer pays part of a price now and the balance later.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Deposit holder",
+    "counterpartyRole": "Payer",
+    "amountField": "amountReceived",
+    "fields": [
+      { "key": "purpose", "label": "Purpose of the deposit", "type": "text", "required": true, "placeholder": "Reservation of a plot of land", "help": "Explain what the deposit is for." },
+      { "key": "amountReceived", "label": "Deposit received", "type": "currency", "required": true, "placeholder": "150000" },
+      { "key": "balanceAmount", "label": "Balance due", "type": "currency", "required": true, "placeholder": "350000" },
+      { "key": "balanceDeadline", "label": "Balance deadline", "type": "date", "required": true },
+      { "key": "cancellationTerms", "label": "Cancellation terms", "type": "textarea", "required": false, "placeholder": "If the buyer cancels, the deposit is non-refundable.", "help": "Say what happens if either side cancels." },
+      { "key": "refundTerms", "label": "Refund terms", "type": "textarea", "required": false, "placeholder": "If the seller cannot complete the deal, the deposit is refunded in full." }
+    ]
+  },
+  {
+    "slug": "instalment-payment",
+    "name": "Instalment payment agreement",
+    "shortDescription": "Set out instalments, due dates and default consequences.",
+    "description": "Records the total price, instalment amounts, payment dates and what happens when an instalment is late.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Seller",
+    "counterpartyRole": "Buyer",
+    "amountField": "totalPrice",
+    "fields": [
+      { "key": "totalPrice", "label": "Total price", "type": "currency", "required": true, "placeholder": "900000" },
+      { "key": "instalmentAmount", "label": "Amount per instalment", "type": "currency", "required": true, "placeholder": "150000" },
+      { "key": "numberOfInstalments", "label": "Number of instalments", "type": "number", "required": true, "placeholder": "6" },
+      { "key": "frequency", "label": "Frequency", "type": "select", "required": true, "options": ["Weekly", "Every two weeks", "Monthly", "Quarterly"], "help": "How often instalments are due." },
+      { "key": "firstDueDate", "label": "First instalment date", "type": "date", "required": true },
+      { "key": "lateConsequences", "label": "If an instalment is late", "type": "textarea", "required": false, "placeholder": "A late fee of ₦5,000 applies after 7 days.", "help": "Explain late-payment consequences. Keep it reasonable and lawful." }
+    ]
+  },
+  {
+    "slug": "supply-order",
+    "name": "Supply / order agreement",
+    "shortDescription": "Document quantities, prices, delivery and inspection.",
+    "description": "For suppliers and buyers recording an order, delivery date, inspection and payment terms.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Supplier",
+    "counterpartyRole": "Buyer",
+    "amountField": "totalPrice",
+    "fields": [
+      { "key": "goodsServices", "label": "Goods or services", "type": "textarea", "required": true, "placeholder": "50 cartons of bottled water" },
+      { "key": "quantity", "label": "Quantity", "type": "text", "required": true, "placeholder": "50 cartons" },
+      { "key": "unitPrice", "label": "Unit price", "type": "currency", "required": false, "placeholder": "2500" },
+      { "key": "totalPrice", "label": "Total price", "type": "currency", "required": true, "placeholder": "125000" },
+      { "key": "deliveryDate", "label": "Delivery date", "type": "date", "required": true },
+      { "key": "inspection", "label": "Inspection terms", "type": "textarea", "required": false, "placeholder": "Buyer will inspect goods on delivery." },
+      { "key": "paymentTerms", "label": "Payment terms", "type": "textarea", "required": true, "placeholder": "50% on order, 50% on delivery." }
+    ]
+  },
+  {
+    "slug": "rent-tenancy",
+    "name": "Rent / tenancy record",
+    "shortDescription": "Record rent, deposit, term and tenancy obligations.",
+    "description": "A practical record of the premises, rent, deposit and payment dates. It does not replace statutory tenancy formalities.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Landlord",
+    "counterpartyRole": "Tenant",
+    "amountField": "rentAmount",
+    "fields": [
+      { "key": "premises", "label": "Premises", "type": "textarea", "required": true, "placeholder": "2-bedroom flat at 12 Adeola Street, Yaba, Lagos" },
+      { "key": "term", "label": "Tenancy term", "type": "text", "required": true, "placeholder": "12 months, renewable by agreement" },
+      { "key": "rentAmount", "label": "Rent", "type": "currency", "required": true, "placeholder": "1200000" },
+      { "key": "depositAmount", "label": "Deposit / caution fee", "type": "currency", "required": false, "placeholder": "200000" },
+      { "key": "paymentDates", "label": "Payment dates", "type": "text", "required": true, "placeholder": "Rent is paid annually in advance on 1 July." },
+      { "key": "obligations", "label": "Obligations", "type": "textarea", "required": false, "placeholder": "Tenant maintains internal repairs; landlord maintains structure." }
+    ]
+  },
+  {
+    "slug": "vehicle-sale",
+    "name": "Vehicle sale record",
+    "shortDescription": "Record vehicle details, price, defects and handover.",
+    "description": "Documents a vehicle sale, disclosed defects, payment and handover. Registration and title transfer formalities are separate.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Seller",
+    "counterpartyRole": "Buyer",
+    "amountField": "price",
+    "fields": [
+      { "key": "vehicleDetails", "label": "Vehicle details", "type": "textarea", "required": true, "placeholder": "Toyota Corolla 2015, chassis JTDBR32E..., registration LSD-123-AB" },
+      { "key": "price", "label": "Sale price", "type": "currency", "required": true, "placeholder": "6500000" },
+      { "key": "paymentTerms", "label": "Payment terms", "type": "text", "required": true, "placeholder": "Full payment by bank transfer on handover." },
+      { "key": "handoverDate", "label": "Handover date", "type": "date", "required": true },
+      { "key": "disclosedDefects", "label": "Disclosed defects", "type": "textarea", "required": true, "placeholder": "Small dent on rear bumper; air conditioning needs servicing.", "help": "List known defects honestly." },
+      { "key": "documents", "label": "Documents handed over", "type": "text", "required": false, "placeholder": "Vehicle licence, proof of ownership, receipt" }
+    ]
+  },
+  {
+    "slug": "acknowledgement-of-debt",
+    "name": "Acknowledgement of debt",
+    "shortDescription": "Record an amount owed and the repayment terms.",
+    "description": "Confirms that a person owes a stated amount and how they intend to repay it.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Creditor",
+    "counterpartyRole": "Debtor",
+    "amountField": "amountOwed",
+    "fields": [
+      { "key": "amountOwed", "label": "Amount owed", "type": "currency", "required": true, "placeholder": "300000" },
+      { "key": "reason", "label": "Reason for the debt", "type": "textarea", "required": true, "placeholder": "Unpaid balance for goods supplied in March." },
+      { "key": "repaymentTerms", "label": "Repayment terms", "type": "textarea", "required": true, "placeholder": "₦100,000 monthly for three months." },
+      { "key": "firstRepaymentDate", "label": "First repayment date", "type": "date", "required": false }
+    ]
+  },
+  {
+    "slug": "general-agreement",
+    "name": "General agreement",
+    "shortDescription": "A flexible starting point for other everyday agreements.",
+    "description": "Use for a straightforward transaction that does not fit the other templates. Custom terms may need legal review.",
+    "version": "1.0",
+    "reviewedAt": "2026-01-15",
+    "creatorRole": "Party A",
+    "counterpartyRole": "Party B",
+    "amountField": "paymentAmount",
+    "fields": [
+      { "key": "subject", "label": "Subject of the agreement", "type": "text", "required": true, "placeholder": "Sale of a set of office chairs" },
+      { "key": "paymentAmount", "label": "Payment amount", "type": "currency", "required": false, "placeholder": "180000" },
+      { "key": "obligations", "label": "Obligations of each party", "type": "textarea", "required": true, "placeholder": "Seller delivers the chairs; buyer pays on delivery." },
+      { "key": "startDate", "label": "Start date", "type": "date", "required": false },
+      { "key": "endDate", "label": "End / completion date", "type": "date", "required": false },
+      { "key": "additionalTerms", "label": "Additional terms", "type": "textarea", "required": false, "help": "Custom terms may need legal review." }
+    ]
+  }
+]

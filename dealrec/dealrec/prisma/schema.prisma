@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id              String    @id @default(cuid())
+  fullName        String
+  email           String    @unique
+  emailVerifiedAt DateTime?
+  phoneNumber     String?
+  phoneVerifiedAt DateTime?
+  passwordHash    String
+  isAdmin         Boolean   @default(false)
+  suspendedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  sessions      Session[]
+  dealsCreated  Deal[]         @relation("DealCreator")
+  parties       DealParty[]
+  documentsCreated DealDocument[] @relation("DocumentCreatedBy")
+  adminActions  AdminAudit[]
+  notifications Notification[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Otp {
+  id         String    @id @default(cuid())
+  purpose    String
+  channel    String
+  target     String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([purpose, target])
+}
+
+model Template {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  name           String
+  description    String
+  version        String
+  reviewedAt     DateTime?
+  definitionsJson String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Deal {
+  id           String    @id @default(cuid())
+  reference    String    @unique
+  title        String
+  dealType     String
+  creatorId    String
+  status       String    @default("DRAFT")
+  currency     String    @default("NGN")
+  totalAmount  Int?
+  termsJson    String    @default("{}")
+  templateSlug String?
+  templateVersion String?
+  currentVersion Int     @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  executedAt   DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  closedReason String?
+
+  creator       User           @relation("DealCreator", fields: [creatorId], references: [id])
+  parties       DealParty[]
+  documents     DealDocument[]
+  signatures    Signature[]
+  events        DealEvent[]
+  comments      DealComment[]
+  payments      PaymentRecord[]
+  obligations   Obligation[]
+  invitations   Invitation[]
+  seals         DealSeal[]
+
+  @@index([creatorId])
+  @@index([status])
+}
+
+model DealParty {
+  id                  String    @id @default(cuid())
+  dealId              String
+  userId              String?
+  fullName            String
+  email               String?
+  phoneNumber         String?
+  role                String
+  invitationStatus    String    @default("PENDING")
+  authenticationLevel String    @default("NONE")
+  isCreator           Boolean   @default(false)
+  signatureRequired   Boolean   @default(true)
+  joinedAt            DateTime?
+  createdAt           DateTime  @default(now())
+
+  deal          Deal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user          User?           @relation(fields: [userId], references: [id])
+  signatures    Signature[]
+  comments      DealComment[]
+  payments      PaymentRecord[]
+  obligations   Obligation[]
+  invitations   Invitation[]
+  notifications Notification[]
+
+  @@index([dealId])
+  @@index([userId])
+}
+
+model DealDocument {
+  id             String    @id @default(cuid())
+  dealId         String
+  versionNumber  Int
+  documentType   String
+  storageKey     String
+  originalName   String?
+  mimeType       String
+  fileSize       Int
+  sha256         String
+  createdBy      String?
+  createdByUser  User?         @relation("DocumentCreatedBy", fields: [createdBy], references: [id])
+  createdAt      DateTime  @default(now())
+  isFinal        Boolean   @default(false)
+  supersededAt   DateTime?
+  changeSummary  String?
+
+  deal       Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  signatures Signature[]
+  comments   DealComment[]
+  payments   PaymentRecord[]
+  seals      DealSeal[]
+
+  @@index([dealId])
+  @@index([dealId, versionNumber, documentType])
+}
+
+model Signature {
+  id                   String   @id @default(cuid())
+  dealId               String
+  documentId           String
+  partyId              String
+  signatureType        String   @default("drawn")
+  signerName           String
+  authenticationMethod String
+  signedAt             DateTime @default(now())
+  ipAddress            String?
+  userAgent            String?
+  consentTextVersion   String
+  signatureAssetKey    String?
+  documentSha256       String
+
+  deal     Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  document DealDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  party    DealParty    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, partyId])
+  @@index([dealId])
+}
+
+model DealEvent {
+  id              String   @id @default(cuid())
+  dealId          String
+  sequence        Int
+  actorPartyId    String?
+  eventType       String
+  description     String
+  metadataJson    String   @default("{}")
+  createdAt       DateTime @default(now())
+  previousEventHash String?
+  eventHash       String
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, sequence])
+  @@index([dealId])
+}
+
+model DealComment {
+  id                  String   @id @default(cuid())
+  dealId              String
+  authorPartyId       String
+  message             String
+  attachmentDocumentId String?
+  correctionOfId      String?
+  kind                String   @default("COMMENT")
+  createdAt           DateTime @default(now())
+
+  deal          Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  authorParty   DealParty     @relation(fields: [authorPartyId], references: [id], onDelete: Cascade)
+  attachment    DealDocument? @relation(fields: [attachmentDocumentId], references: [id])
+  correctionOf  DealComment?  @relation("CommentCorrection", fields: [correctionOfId], references: [id])
+  corrections   DealComment[] @relation("CommentCorrection")
+
+  @@index([dealId])
+}
+
+model PaymentRecord {
+  id               String   @id @default(cuid())
+  dealId           String
+  recordedByPartyId String
+  amount           Int
+  currency         String   @default("NGN")
+  paymentDate      DateTime
+  paymentMethod    String
+  reference        String?
+  verificationStatus String @default("UNVERIFIED")
+  receiptDocumentId String?
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  deal          Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  recordedBy    DealParty     @relation(fields: [recordedByPartyId], references: [id], onDelete: Cascade)
+  receipt       DealDocument? @relation(fields: [receiptDocumentId], references: [id])
+
+  @@index([dealId])
+}
+
+model Obligation {
+  id                 String    @id @default(cuid())
+  dealId             String
+  responsiblePartyId String?
+  title              String
+  description        String?
+  amount             Int?
+  kind               String    @default("PAYMENT")
+  dueAt              DateTime?
+  status             String    @default("PENDING")
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+
+  deal        Deal       @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  responsible DealParty? @relation(fields: [responsiblePartyId], references: [id])
+
+  @@index([dealId])
+}
+
+model Invitation {
+  id           String    @id @default(cuid())
+  dealId       String
+  partyId      String
+  tokenHash    String    @unique
+  status       String    @default("CREATED")
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  verifiedAt   DateTime?
+  verifyMethod String?
+  lastOpenedAt DateTime?
+  openCount    Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  deal  Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  party DealParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+}
+
+model DealSeal {
+  id               String    @id @default(cuid())
+  dealId           String
+  documentId       String
+  serialNumber     String    @unique
+  verificationToken String   @unique
+  status           String    @default("ACTIVE")
+  issuedAt         DateTime  @default(now())
+  revokedAt        DateTime?
+  revocationReason String?
+
+  deal     Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  document DealDocument @relation(fields: [documentId], references: [id])
+
+  @@index([dealId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String?
+  partyId   String?
+  dealId    String?
+  type      String
+  channel   String    @default("IN_APP")
+  status    String    @default("SENT")
+  title     String
+  body      String
+  sentAt    DateTime  @default(now())
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user  User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  party DealParty? @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([partyId])
+}
+
+model AdminAudit {
+  id          String   @id @default(cuid())
+  actorUserId String
+  action      String
+  targetType  String
+  targetId    String
+  metadataJson String  @default("{}")
+  createdAt   DateTime @default(now())
+
+  actor User @relation(fields: [actorUserId], references: [id])
+
+  @@index([actorUserId])
+}
