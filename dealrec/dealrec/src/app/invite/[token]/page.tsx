@@ -16,6 +16,7 @@ import {
   DEAL_STATUS_LABEL,
   DOCUMENT_TYPE,
   INVITATION_STATUS,
+  WITNESS_STATUS,
 } from "@/lib/constants";
 import { formatDate, formatDateTime, formatNaira, maskEmail, maskPhone, shortHash } from "@/lib/utils";
 import { Logo } from "@/components/ui/logo";
@@ -89,6 +90,18 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const signed = signatures.some((signature) => signature.partyId === invitation.partyId);
   const required = deal.parties.filter((party) => party.signatureRequired);
   const allSigned = required.every((party) => signatures.some((signature) => signature.partyId === party.id));
+  const currentWitnesses = currentDoc
+    ? deal.witnesses.filter(
+        (witness) =>
+          witness.documentId === currentDoc.id &&
+          witness.status !== WITNESS_STATUS.REVOKED &&
+          witness.status !== WITNESS_STATUS.SUPERSEDED,
+      )
+    : [];
+  const pendingWitnesses = currentWitnesses.filter(
+    (witness) => witness.required && witness.status !== WITNESS_STATUS.ATTESTED,
+  );
+  const fullyExecuted = allSigned && pendingWitnesses.length === 0;
   const agreement = buildAgreementContent(deal, deal.parties);
   const contact = invitation.party.email
     ? maskEmail(invitation.party.email)
@@ -114,7 +127,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     );
   }
 
-  const seal = allSigned
+  const seal = fullyExecuted
     ? await db.dealSeal.findFirst({ where: { dealId: deal.id }, orderBy: { issuedAt: "desc" } })
     : null;
   const certificate = deal.documents.find((item) => item.documentType === DOCUMENT_TYPE.CERTIFICATE) ?? null;
@@ -207,11 +220,13 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
                 <h2 className="text-[15px] font-bold text-brand-900">You have signed this deal</h2>
                 <p className="mt-1 text-[12px] leading-5 text-brand-800/80">
                   Your signature is locked to version {currentDoc?.versionNumber ?? deal.currentVersion}.
-                  {allSigned
-                    ? " All required parties have signed, so the executed record is available."
-                    : " The other required party still needs to sign."}
+                  {fullyExecuted
+                    ? " All required parties have signed and required witnesses have attested, so the executed record is available."
+                    : allSigned
+                      ? ` All required parties have signed. ${pendingWitnesses.length} required witness${pendingWitnesses.length === 1 ? "" : "es"} still need to attest before execution.`
+                      : " The other required party still needs to sign."}
                 </p>
-                {allSigned ? (
+                {fullyExecuted ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     <a href={evidenceUrl} className={buttonStyles({ size: "sm" })}>
                       <Download className="h-4 w-4" aria-hidden />

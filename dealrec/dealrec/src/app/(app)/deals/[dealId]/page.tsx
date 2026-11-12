@@ -41,6 +41,8 @@ import {
   DEAL_STATUS_LABEL,
   EVENT_LABEL,
   OBLIGATION_STATUS,
+  WITNESS_STATUS,
+  WITNESS_STATUS_LABEL,
 } from "@/lib/constants";
 import {
   formatDate,
@@ -69,6 +71,7 @@ import { VersionForm } from "@/components/deals/version-form";
 import { CommentForm } from "@/components/deals/comment-form";
 import { PaymentForm } from "@/components/deals/payment-form";
 import { ObligationForm } from "@/components/deals/obligation-form";
+import { WitnessPanel } from "@/components/deals/witness-panel";
 
 export const metadata = { title: "Deal workspace" };
 
@@ -126,6 +129,40 @@ export default async function DealWorkspacePage({
   );
 
   const agreement = buildAgreementContent(deal, deal.parties);
+  const witnessViews = (document ? deal.witnesses.filter((witness) => witness.documentId === document.id) : []).map(
+    (witness) => ({
+      id: witness.id,
+      witnessedPartyId: witness.witnessedPartyId,
+      witnessedPartyName:
+        deal.parties.find((item) => item.id === witness.witnessedPartyId)?.fullName ?? "Party",
+      fullName: witness.fullName,
+      status: witness.status,
+      statusLabel: WITNESS_STATUS_LABEL[witness.status] ?? witness.status,
+      required: witness.required,
+      expiresLabel: formatDate(witness.expiresAt),
+      attestedLabel: witness.attestedAt ? formatDateTime(witness.attestedAt) : null,
+      openCount: witness.openCount,
+      canManage:
+        !isClosed &&
+        deal.status !== DEAL_STATUS.EXECUTED &&
+        (isCreator ||
+          currentUser.isAdmin ||
+          me?.id === witness.addedByPartyId ||
+          me?.id === witness.witnessedPartyId) &&
+        witness.status !== WITNESS_STATUS.REVOKED &&
+        witness.status !== WITNESS_STATUS.SUPERSEDED,
+      canResend:
+        !isClosed &&
+        deal.status !== DEAL_STATUS.EXECUTED &&
+        witness.status !== WITNESS_STATUS.ATTESTED &&
+        witness.status !== WITNESS_STATUS.REVOKED &&
+        witness.status !== WITNESS_STATUS.SUPERSEDED &&
+        (isCreator ||
+          currentUser.isAdmin ||
+          me?.id === witness.addedByPartyId ||
+          me?.id === witness.witnessedPartyId),
+    }),
+  );
 
   return (
     <div className="space-y-5">
@@ -889,6 +926,20 @@ export default async function DealWorkspacePage({
                 ) : null}
               </CardBody>
             </Card>
+
+            <WitnessPanel
+              dealId={deal.id}
+              parties={deal.parties.map((item) => ({
+                id: item.id,
+                fullName: item.fullName,
+                role: item.role,
+                isCreator: item.isCreator,
+              }))}
+              witnesses={witnessViews}
+              canManage={isCreator || currentUser.isAdmin}
+              viewerPartyId={me?.id ?? null}
+              disabled={isClosed || deal.status === DEAL_STATUS.EXECUTED}
+            />
 
             <Card>
               <CardHeader title="Invitation history" />

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getDealAccess } from "@/lib/deals";
 import { findInvitation } from "@/lib/deals";
+import { findWitness, witnessProblem } from "@/lib/witness";
 import { getFile, safeFileName } from "@/lib/storage";
 
 export async function GET(
@@ -16,6 +17,11 @@ export async function GET(
     if (token) {
       const invitation = await findInvitation(token);
       allowed = Boolean(invitation && invitation.dealId === dealId && !invitation.revokedAt);
+    }
+    const witnessToken = request.nextUrl.searchParams.get("witnessToken");
+    if (!allowed && witnessToken) {
+      const witness = await findWitness(witnessToken);
+      allowed = Boolean(witness && witness.dealId === dealId && !witnessProblem(witness));
     }
   }
 

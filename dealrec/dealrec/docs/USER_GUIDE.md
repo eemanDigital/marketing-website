@@ -31,9 +31,22 @@ Each required party signs the current version. You can draw a signature or type 
 
 A drawn/typed image alone is not a qualified digital signature. The record links the signature to the exact version hash.
 
+## Witnesses
+
+A party can add a witness for itself; the deal creator or an admin can add one for either party. A witness must provide an email address or phone number. That contact is verified with a one-time code before the witness can attest.
+
+The witness confirms that they observed the identified party sign the current version. Witness details, address, occupation, relationship, signature image (when drawn), document hash, time, IP address and device metadata are recorded.
+
+- Each party can have one witness per document version.
+- A new document version supersedes earlier witness attestations.
+- Required witnesses block execution until they attest.
+- Optional witnesses do not block execution but must attest before execution to be included.
+- Revoking a required witness removes the block; executed records are locked.
+- A witness cannot edit terms, decline, comment, record payments, or sign for a party.
+
 ## After signing
 
-When every required party has signed the same version, the deal executes automatically:
+When every required party has signed and every required witness has attested, the deal executes automatically:
 
 - an executed copy is generated,
 - a verification certificate and seal are issued,
@@ -50,7 +63,7 @@ Later changes require a new version and new signatures.
 
 ## Evidence pack
 
-Download the ZIP from the deal workspace. It includes the agreement and versions, executed copy, certificate, signatures, payments, comments, event audit trail, and a hash-chain verification report.
+Download the ZIP from the deal workspace. It includes the agreement and versions, executed copy, certificate, signatures, witness records, payments, comments, event audit trail, and a hash-chain verification report.
 
 Keep the ZIP and certificate with your own records. dealrec is not a substitute for legal advice or a court process.
 

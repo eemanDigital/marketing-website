@@ -7,6 +7,7 @@ import {
   EVENT,
   EVENT_LABEL,
   OBLIGATION_STATUS,
+  WITNESS_STATUS,
 } from "./constants";
 import {
   executedDocument,
@@ -105,6 +106,61 @@ export async function buildEvidencePack(dealId: string) {
   ]);
   await addFile("obligations.csv", Buffer.from(obligationsCsv, "utf8"));
 
+  const versionWitnesses = deal.witnesses.filter(
+    (witness) =>
+      deal.documents.find((document) => document.id === witness.documentId)?.versionNumber ===
+      executed.versionNumber,
+  );
+  const witnessesCsv = csv([
+    [
+      "witness_for",
+      "witness_name",
+      "status",
+      "required",
+      "email",
+      "phone",
+      "address",
+      "occupation",
+      "relationship",
+      "invited_at_utc",
+      "verified_at_utc",
+      "attested_at_utc",
+      "signer_name",
+      "authentication",
+      "document_sha256",
+      "revoked_at_utc",
+    ],
+    ...versionWitnesses.map((witness) => [
+      deal.parties.find((party) => party.id === witness.witnessedPartyId)?.fullName ?? "",
+      witness.fullName,
+      witness.status,
+      witness.required ? "yes" : "no",
+      witness.email ?? "",
+      witness.phoneNumber ?? "",
+      witness.address ?? "",
+      witness.occupation ?? "",
+      witness.relationship ?? "",
+      witness.createdAt.toISOString(),
+      witness.verifiedAt?.toISOString() ?? "",
+      witness.attestedAt?.toISOString() ?? "",
+      witness.signerName ?? "",
+      witness.authenticationMethod ?? "",
+      witness.documentSha256 ?? "",
+      witness.revokedAt?.toISOString() ?? "",
+    ]),
+  ]);
+  await addFile("witnesses.csv", Buffer.from(witnessesCsv, "utf8"));
+
+  for (const witness of versionWitnesses) {
+    if (!witness.signatureAssetKey) continue;
+    try {
+      const bytes = await getFile(witness.signatureAssetKey);
+      await addFile(`witness-signatures/${witness.id}.png`, bytes);
+    } catch {
+      // A missing witness signature should not stop the rest of the evidence pack.
+    }
+  }
+
   for (const payment of deal.payments) {
     if (!payment.receipt) continue;
     try {
@@ -127,6 +183,16 @@ export async function buildEvidencePack(dealId: string) {
     )
     .join("\n");
 
+  const witnessLines = versionWitnesses
+    .map((witness) => {
+      const witnessedParty = deal.parties.find((party) => party.id === witness.witnessedPartyId);
+      if (witness.status === WITNESS_STATUS.ATTESTED) {
+        return `- Witness for ${witnessedParty?.fullName ?? "party"}: ${witness.fullName}${witness.address ? ` | ${witness.address}` : ""} | ${formatDateTime(witness.attestedAt)} | ${AUTH_LEVEL_LABEL[witness.authenticationMethod ?? ""] ?? witness.authenticationMethod ?? "contact verified"} | document hash ${witness.documentSha256 ?? ""}`;
+      }
+      return `- Witness for ${witnessedParty?.fullName ?? "party"}: ${witness.fullName} | ${witness.status}${witness.required ? " (required)" : " (optional)"}`;
+    })
+    .join("\n");
+
   const summary = `DEALREC EVIDENCE RECORD
 
 Deal reference: ${deal.reference}
@@ -144,6 +210,9 @@ ${partiesLines}
 
 SIGNATORIES (executed document)
 ${signerLines || "- No signatures recorded"}
+
+WITNESSES (executed document version)
+${witnessLines || "- No witnesses recorded"}
 
 FILES IN THIS PACK
 ${manifestRows.join("\n")}
@@ -190,6 +259,7 @@ Generated: ${new Date().toISOString()}
       status: seal.status,
       executedAt: deal.executedAt,
       signatories: deal.signatures.filter((signature) => signature.documentId === executed.id).length,
+      witnesses: versionWitnesses.length,
       eventCount: deal.events.length + 1,
       paymentCount: deal.payments.length,
       obligationCount: deal.obligations.length + deal.payments.filter((p) => p.verificationStatus === "UNVERIFIED").length,

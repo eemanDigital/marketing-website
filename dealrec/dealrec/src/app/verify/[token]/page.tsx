@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CheckCircle2, FileText, ShieldAlert, ShieldCheck } from "lucide-react";
 import { db } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { WITNESS_STATUS, WITNESS_STATUS_LABEL } from "@/lib/constants";
 import { Logo } from "@/components/ui/logo";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -25,6 +26,7 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
           parties: true,
           signatures: true,
           documents: true,
+          witnesses: true,
         },
       },
     },
@@ -124,6 +126,62 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
                     </div>
                   );
                 })}
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader
+                title="Witness attestations"
+                description="Witnesses recorded for the executed document version."
+              />
+              <CardBody className="space-y-2">
+                {seal.deal.witnesses.filter(
+                  (witness) =>
+                    seal.deal.documents.find((document) => document.id === witness.documentId)
+                      ?.versionNumber === seal.document.versionNumber,
+                ).length === 0 ? (
+                  <p className="text-[12px] text-ink-500">No witnesses recorded for this version.</p>
+                ) : (
+                  seal.deal.witnesses
+                    .filter(
+                      (witness) =>
+                        seal.deal.documents.find((document) => document.id === witness.documentId)
+                          ?.versionNumber === seal.document.versionNumber,
+                    )
+                    .map((witness) => {
+                      const witnessedParty = seal.deal.parties.find(
+                        (party) => party.id === witness.witnessedPartyId,
+                      );
+                      const attested = witness.status === WITNESS_STATUS.ATTESTED;
+                      return (
+                        <div
+                          key={witness.id}
+                          className="flex items-center gap-3 rounded-xl border border-ink-100 p-3"
+                        >
+                          <Avatar name={witness.fullName} size="sm" />
+                          <div className="min-w-0">
+                            <p className="truncate text-[12px] font-semibold text-ink-900">
+                              {witness.fullName}
+                            </p>
+                            <p className="text-[10px] text-ink-500">
+                              Witness for {witnessedParty?.fullName ?? "party"}
+                              {witness.attestedAt ? ` · ${formatDateTime(witness.attestedAt)}` : ""}
+                            </p>
+                          </div>
+                          <span
+                            className={
+                              attested
+                                ? "ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700"
+                                : "ml-auto text-[10px] font-semibold text-ink-500"
+                            }
+                          >
+                            {attested ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : null}
+                            {WITNESS_STATUS_LABEL[witness.status] ?? witness.status}
+                          </span>
+                        </div>
+                      );
+                    })
+                )}
               </CardBody>
             </Card>
 

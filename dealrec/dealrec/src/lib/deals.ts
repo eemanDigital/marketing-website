@@ -9,6 +9,7 @@ import {
   INVITATION_STATUS,
   OBLIGATION_STATUS,
   SEAL_STATUS,
+  WITNESS_STATUS,
 } from "./constants";
 import { appendEvent } from "./events";
 import { getFile, putFile } from "./storage";
@@ -19,6 +20,7 @@ import {
   buildCertificatePdf,
   buildUploadedExecutionPdf,
   type PartyForPdf,
+  type WitnessForPdf,
 } from "./pdf";
 import { formatDate, formatNaira, safeJsonParse } from "./utils";
 import { getTemplate } from "./templates";
@@ -40,6 +42,7 @@ const dealInclude = {
   obligations: { orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }] },
   invitations: { orderBy: { createdAt: "desc" } },
   seals: { orderBy: { issuedAt: "desc" } },
+  witnesses: { orderBy: { createdAt: "asc" } },
 } satisfies Prisma.DealInclude;
 
 export type FullDeal = Prisma.DealGetPayload<{ include: typeof dealInclude }>;
@@ -101,6 +104,33 @@ export function allRequiredSigned(deal: FullDeal) {
 
 export function partyHasSigned(deal: FullDeal, partyId: string) {
   return signedPartyIds(deal).has(partyId);
+}
+
+export function currentWitnesses(deal: FullDeal) {
+  const document = currentDocument(deal);
+  if (!document) return [];
+  return deal.witnesses.filter(
+    (witness) =>
+      witness.documentId === document.id &&
+      witness.status !== WITNESS_STATUS.REVOKED &&
+      witness.status !== WITNESS_STATUS.SUPERSEDED,
+  );
+}
+
+export function requiredWitnesses(deal: FullDeal) {
+  return currentWitnesses(deal).filter((witness) => witness.required);
+}
+
+export function pendingRequiredWitnesses(deal: FullDeal) {
+  return requiredWitnesses(deal).filter((witness) => witness.status !== WITNESS_STATUS.ATTESTED);
+}
+
+export function allRequiredWitnessesAttested(deal: FullDeal) {
+  return pendingRequiredWitnesses(deal).length === 0;
+}
+
+export function witnessForParty(deal: FullDeal, partyId: string) {
+  return currentWitnesses(deal).find((witness) => witness.witnessedPartyId === partyId) ?? null;
 }
 
 export function canSign(deal: FullDeal) {
@@ -200,6 +230,7 @@ export function statusTone(status: string) {
       return "danger";
     case DEAL_STATUS.AWAITING_CREATOR_SIGNATURE:
     case DEAL_STATUS.AWAITING_OTHER_SIGNATURES:
+    case DEAL_STATUS.AWAITING_WITNESSES:
     case DEAL_STATUS.AWAITING_COUNTERPARTY:
     case DEAL_STATUS.UNDER_REVIEW:
       return "warning";
@@ -269,6 +300,7 @@ export async function findInvitation(token: string) {
           signatures: { include: { party: true } },
           obligations: true,
           payments: true,
+          witnesses: true,
         },
       },
     },
@@ -353,6 +385,27 @@ export async function createVersion(input: {
         authenticationLevel: "NONE",
       },
     });
+    const supersededWitnesses = deal.witnesses.filter(
+      (witness) =>
+        witness.status !== WITNESS_STATUS.REVOKED &&
+        witness.status !== WITNESS_STATUS.SUPERSEDED,
+    );
+    await tx.dealWitness.updateMany({
+      where: {
+        dealId: deal.id,
+        status: { notIn: [WITNESS_STATUS.REVOKED, WITNESS_STATUS.SUPERSEDED] },
+      },
+      data: { status: WITNESS_STATUS.SUPERSEDED },
+    });
+    for (const witness of supersededWitnesses) {
+      await appendEvent(tx, {
+        dealId: deal.id,
+        eventType: EVENT.WITNESS_SUPERSEDED,
+        description: `Witness attestation for ${witness.fullName} was superseded by version ${nextVersion}.`,
+        actorPartyId: input.actorPartyId,
+        metadata: { witnessId: witness.id, witnessedPartyId: witness.witnessedPartyId, version: nextVersion },
+      });
+    }
     await appendEvent(tx, {
       dealId: deal.id,
       eventType: EVENT.DOCUMENT_VERSION_CREATED,
@@ -458,6 +511,38 @@ export async function generateExecutionArtifacts(dealId: string) {
   const url = verificationUrl(verificationToken);
   const executedAt = deal.executedAt ?? new Date();
   const sigs = deal.signatures.filter((signature) => signature.documentId === versionDocument.id);
+  const witnessRows = deal.witnesses.filter(
+    (witness) =>
+      witness.documentId === versionDocument.id &&
+      witness.status !== WITNESS_STATUS.REVOKED &&
+      witness.status !== WITNESS_STATUS.SUPERSEDED,
+  );
+  const witnessesByPdf: WitnessForPdf[] = [];
+  for (const witness of witnessRows) {
+    const witnessedParty = deal.parties.find((party) => party.id === witness.witnessedPartyId);
+    let signaturePng: Buffer | null = null;
+    if (witness.status === WITNESS_STATUS.ATTESTED && witness.signatureAssetKey) {
+      try {
+        signaturePng = await getFile(witness.signatureAssetKey);
+      } catch {
+        signaturePng = null;
+      }
+    }
+    witnessesByPdf.push({
+      role: `Witness for ${witnessedParty?.fullName ?? "party"}`,
+      name: witness.fullName,
+      address: witness.address,
+      occupation: witness.occupation,
+      relationship: witness.relationship,
+      signerName: witness.signerName,
+      signedAt: witness.attestedAt,
+      authLabel: witness.authenticationMethod
+        ? AUTH_LEVEL_LABEL[witness.authenticationMethod] ?? witness.authenticationMethod
+        : undefined,
+      signaturePng,
+      attested: witness.status === WITNESS_STATUS.ATTESTED,
+    });
+  }
 
   let executedBuffer: Buffer;
   let executedHash: string;
@@ -498,6 +583,7 @@ export async function generateExecutionArtifacts(dealId: string) {
         title: deal.title,
         versionNumber: versionDocument.versionNumber,
         parties: partiesByPdf,
+        witnesses: witnessesByPdf,
         watermark: "EXECUTED",
         executed: true,
       });
@@ -509,6 +595,7 @@ export async function generateExecutionArtifacts(dealId: string) {
         versionNumber: versionDocument.versionNumber,
         content,
         parties: partiesByPdf,
+        witnesses: witnessesByPdf,
         watermark: "EXECUTED",
         executed: true,
         generatedAt: new Date(),
@@ -538,6 +625,7 @@ export async function generateExecutionArtifacts(dealId: string) {
       authLabel: AUTH_LEVEL_LABEL[signature.authenticationMethod] ?? signature.authenticationMethod,
       signedAt: signature.signedAt,
     })),
+    witnesses: witnessesByPdf,
   });
   const certificateBuffer = Buffer.from(certificateBytes);
   const certificateHash = sha256(certificateBuffer);
@@ -654,6 +742,7 @@ export async function executeDealIfReady(dealId: string) {
   const deal = await getFullDeal(dealId);
   if (!deal) return null;
   if (!allRequiredSigned(deal)) return null;
+  if (!allRequiredWitnessesAttested(deal)) return null;
   if (deal.status === DEAL_STATUS.VOIDED || deal.status === DEAL_STATUS.CANCELLED) return null;
 
   const claim = await db.deal.updateMany({
@@ -686,9 +775,12 @@ export function dealSummaryLine(deal: FullDeal) {
 export function workspaceProgress(deal: FullDeal) {
   const signed = signedPartyIds(deal);
   const required = requiredParties(deal);
+  const requiredWitnessList = requiredWitnesses(deal);
   return {
     signed: required.filter((party) => signed.has(party.id)).length,
     required: required.length,
+    witnessesAttested: requiredWitnessList.filter((witness) => witness.status === WITNESS_STATUS.ATTESTED).length,
+    witnessesRequired: requiredWitnessList.length,
   };
 }
 
@@ -711,7 +803,7 @@ export async function recordSignature(input: {
   return db.$transaction(async (tx) => {
     const deal = await tx.deal.findUnique({
       where: { id: input.dealId },
-      include: { parties: true, documents: true, signatures: true },
+      include: { parties: true, documents: true, signatures: true, witnesses: true },
     });
     if (!deal) throw new Error("Deal not found.");
     if (CLOSED.includes(deal.status as (typeof CLOSED)[number]) || deal.status === DEAL_STATUS.EXECUTED) {
@@ -762,12 +854,25 @@ export async function recordSignature(input: {
     const unsigned = required.filter(
       (item) => !signatures.some((sig) => sig.partyId === item.id && sig.documentId === document.id),
     );
-    const nextStatus =
+    const pendingWitnesses =
       unsigned.length === 0
-        ? DEAL_STATUS.EXECUTED
-        : unsigned.some((item) => item.isCreator)
+        ? deal.witnesses.filter(
+            (witness) =>
+              witness.documentId === document.id &&
+              witness.required &&
+              witness.status !== WITNESS_STATUS.ATTESTED &&
+              witness.status !== WITNESS_STATUS.REVOKED &&
+              witness.status !== WITNESS_STATUS.SUPERSEDED,
+          )
+        : [];
+    const nextStatus =
+      unsigned.length > 0
+        ? unsigned.some((item) => item.isCreator)
           ? DEAL_STATUS.AWAITING_CREATOR_SIGNATURE
-          : DEAL_STATUS.AWAITING_OTHER_SIGNATURES;
+          : DEAL_STATUS.AWAITING_OTHER_SIGNATURES
+        : pendingWitnesses.length > 0
+          ? DEAL_STATUS.AWAITING_WITNESSES
+          : DEAL_STATUS.EXECUTED;
 
     await tx.deal.update({
       where: { id: deal.id },
@@ -800,6 +905,12 @@ export async function recordSignature(input: {
       },
     });
 
-    return { allSigned: unsigned.length === 0, signature, status: nextStatus, party };
+    return {
+      allSigned: unsigned.length === 0,
+      witnessesPending: pendingWitnesses.length > 0,
+      signature,
+      status: nextStatus,
+      party,
+    };
   });
 }

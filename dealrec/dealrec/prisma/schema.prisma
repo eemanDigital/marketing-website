@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model User {
@@ -19,12 +19,12 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  sessions      Session[]
-  dealsCreated  Deal[]         @relation("DealCreator")
-  parties       DealParty[]
+  sessions         Session[]
+  dealsCreated     Deal[]         @relation("DealCreator")
+  parties          DealParty[]
   documentsCreated DealDocument[] @relation("DocumentCreatedBy")
-  adminActions  AdminAudit[]
-  notifications Notification[]
+  adminActions     AdminAudit[]
+  notifications    Notification[]
 }
 
 model Session {
@@ -56,48 +56,49 @@ model Otp {
 }
 
 model Template {
-  id             String   @id @default(cuid())
-  slug           String   @unique
-  name           String
-  description    String
-  version        String
-  reviewedAt     DateTime?
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  name            String
+  description     String
+  version         String
+  reviewedAt      DateTime?
   definitionsJson String
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model Deal {
-  id           String    @id @default(cuid())
-  reference    String    @unique
-  title        String
-  dealType     String
-  creatorId    String
-  status       String    @default("DRAFT")
-  currency     String    @default("NGN")
-  totalAmount  Int?
-  termsJson    String    @default("{}")
-  templateSlug String?
+  id              String    @id @default(cuid())
+  reference       String    @unique
+  title           String
+  dealType        String
+  creatorId       String
+  status          String    @default("DRAFT")
+  currency        String    @default("NGN")
+  totalAmount     Int?
+  termsJson       String    @default("{}")
+  templateSlug    String?
   templateVersion String?
-  currentVersion Int     @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  executedAt   DateTime?
-  completedAt  DateTime?
-  cancelledAt  DateTime?
-  closedReason String?
+  currentVersion  Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  executedAt      DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  closedReason    String?
 
-  creator       User           @relation("DealCreator", fields: [creatorId], references: [id])
-  parties       DealParty[]
-  documents     DealDocument[]
-  signatures    Signature[]
-  events        DealEvent[]
-  comments      DealComment[]
-  payments      PaymentRecord[]
-  obligations   Obligation[]
-  invitations   Invitation[]
-  seals         DealSeal[]
+  creator     User            @relation("DealCreator", fields: [creatorId], references: [id])
+  parties     DealParty[]
+  documents   DealDocument[]
+  signatures  Signature[]
+  events      DealEvent[]
+  comments    DealComment[]
+  payments    PaymentRecord[]
+  obligations Obligation[]
+  invitations Invitation[]
+  seals       DealSeal[]
+  witnesses   DealWitness[]
 
   @@index([creatorId])
   @@index([status])
@@ -118,41 +119,44 @@ model DealParty {
   joinedAt            DateTime?
   createdAt           DateTime  @default(now())
 
-  deal          Deal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  user          User?           @relation(fields: [userId], references: [id])
-  signatures    Signature[]
-  comments      DealComment[]
-  payments      PaymentRecord[]
-  obligations   Obligation[]
-  invitations   Invitation[]
-  notifications Notification[]
+  deal               Deal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user               User?           @relation(fields: [userId], references: [id])
+  signatures         Signature[]
+  comments           DealComment[]
+  payments           PaymentRecord[]
+  obligations        Obligation[]
+  invitations        Invitation[]
+  notifications      Notification[]
+  witnessedWitnesses DealWitness[]   @relation("WitnessedParty")
+  addedWitnesses     DealWitness[]   @relation("WitnessAddedBy")
 
   @@index([dealId])
   @@index([userId])
 }
 
 model DealDocument {
-  id             String    @id @default(cuid())
-  dealId         String
-  versionNumber  Int
-  documentType   String
-  storageKey     String
-  originalName   String?
-  mimeType       String
-  fileSize       Int
-  sha256         String
-  createdBy      String?
-  createdByUser  User?         @relation("DocumentCreatedBy", fields: [createdBy], references: [id])
-  createdAt      DateTime  @default(now())
-  isFinal        Boolean   @default(false)
-  supersededAt   DateTime?
-  changeSummary  String?
+  id            String    @id @default(cuid())
+  dealId        String
+  versionNumber Int
+  documentType  String
+  storageKey    String
+  originalName  String?
+  mimeType      String
+  fileSize      Int
+  sha256        String
+  createdBy     String?
+  createdByUser User?     @relation("DocumentCreatedBy", fields: [createdBy], references: [id])
+  createdAt     DateTime  @default(now())
+  isFinal       Boolean   @default(false)
+  supersededAt  DateTime?
+  changeSummary String?
 
-  deal       Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal       Deal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
   signatures Signature[]
   comments   DealComment[]
   payments   PaymentRecord[]
   seals      DealSeal[]
+  witnesses  DealWitness[]
 
   @@index([dealId])
   @@index([dealId, versionNumber, documentType])
@@ -182,16 +186,16 @@ model Signature {
 }
 
 model DealEvent {
-  id              String   @id @default(cuid())
-  dealId          String
-  sequence        Int
-  actorPartyId    String?
-  eventType       String
-  description     String
-  metadataJson    String   @default("{}")
-  createdAt       DateTime @default(now())
+  id                String   @id @default(cuid())
+  dealId            String
+  sequence          Int
+  actorPartyId      String?
+  eventType         String
+  description       String
+  metadataJson      String   @default("{}")
+  createdAt         DateTime @default(now())
   previousEventHash String?
-  eventHash       String
+  eventHash         String
 
   deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
@@ -200,41 +204,41 @@ model DealEvent {
 }
 
 model DealComment {
-  id                  String   @id @default(cuid())
-  dealId              String
-  authorPartyId       String
-  message             String
+  id                   String   @id @default(cuid())
+  dealId               String
+  authorPartyId        String
+  message              String
   attachmentDocumentId String?
-  correctionOfId      String?
-  kind                String   @default("COMMENT")
-  createdAt           DateTime @default(now())
+  correctionOfId       String?
+  kind                 String   @default("COMMENT")
+  createdAt            DateTime @default(now())
 
-  deal          Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  authorParty   DealParty     @relation(fields: [authorPartyId], references: [id], onDelete: Cascade)
-  attachment    DealDocument? @relation(fields: [attachmentDocumentId], references: [id])
-  correctionOf  DealComment?  @relation("CommentCorrection", fields: [correctionOfId], references: [id])
-  corrections   DealComment[] @relation("CommentCorrection")
+  deal         Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  authorParty  DealParty     @relation(fields: [authorPartyId], references: [id], onDelete: Cascade)
+  attachment   DealDocument? @relation(fields: [attachmentDocumentId], references: [id])
+  correctionOf DealComment?  @relation("CommentCorrection", fields: [correctionOfId], references: [id])
+  corrections  DealComment[] @relation("CommentCorrection")
 
   @@index([dealId])
 }
 
 model PaymentRecord {
-  id               String   @id @default(cuid())
-  dealId           String
-  recordedByPartyId String
-  amount           Int
-  currency         String   @default("NGN")
-  paymentDate      DateTime
-  paymentMethod    String
-  reference        String?
-  verificationStatus String @default("UNVERIFIED")
-  receiptDocumentId String?
-  notes            String?
-  createdAt        DateTime @default(now())
+  id                 String   @id @default(cuid())
+  dealId             String
+  recordedByPartyId  String
+  amount             Int
+  currency           String   @default("NGN")
+  paymentDate        DateTime
+  paymentMethod      String
+  reference          String?
+  verificationStatus String   @default("UNVERIFIED")
+  receiptDocumentId  String?
+  notes              String?
+  createdAt          DateTime @default(now())
 
-  deal          Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  recordedBy    DealParty     @relation(fields: [recordedByPartyId], references: [id], onDelete: Cascade)
-  receipt       DealDocument? @relation(fields: [receiptDocumentId], references: [id])
+  deal       Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  recordedBy DealParty     @relation(fields: [recordedByPartyId], references: [id], onDelete: Cascade)
+  receipt    DealDocument? @relation(fields: [receiptDocumentId], references: [id])
 
   @@index([dealId])
 }
@@ -278,16 +282,59 @@ model Invitation {
   @@index([dealId])
 }
 
+model DealWitness {
+  id                   String    @id @default(cuid())
+  dealId               String
+  witnessedPartyId     String
+  addedByPartyId       String?
+  documentId           String?
+  fullName             String
+  email                String?
+  phoneNumber          String?
+  address              String?
+  occupation           String?
+  relationship         String?
+  tokenHash            String    @unique
+  status               String    @default("INVITED")
+  required             Boolean   @default(true)
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  verifiedAt           DateTime?
+  verifyMethod         String?
+  lastOpenedAt         DateTime?
+  openCount            Int       @default(0)
+  attestedAt           DateTime?
+  authenticationMethod String?
+  signatureType        String?
+  signatureAssetKey    String?
+  signerName           String?
+  consentTextVersion   String?
+  documentSha256       String?
+  ipAddress            String?
+  userAgent            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  deal           Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  witnessedParty DealParty     @relation("WitnessedParty", fields: [witnessedPartyId], references: [id], onDelete: Cascade)
+  addedByParty   DealParty?    @relation("WitnessAddedBy", fields: [addedByPartyId], references: [id], onDelete: SetNull)
+  document       DealDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([dealId])
+  @@index([witnessedPartyId])
+  @@index([documentId])
+}
+
 model DealSeal {
-  id               String    @id @default(cuid())
-  dealId           String
-  documentId       String
-  serialNumber     String    @unique
-  verificationToken String   @unique
-  status           String    @default("ACTIVE")
-  issuedAt         DateTime  @default(now())
-  revokedAt        DateTime?
-  revocationReason String?
+  id                String    @id @default(cuid())
+  dealId            String
+  documentId        String
+  serialNumber      String    @unique
+  verificationToken String    @unique
+  status            String    @default("ACTIVE")
+  issuedAt          DateTime  @default(now())
+  revokedAt         DateTime?
+  revocationReason  String?
 
   deal     Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
   document DealDocument @relation(fields: [documentId], references: [id])
@@ -309,7 +356,7 @@ model Notification {
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
-  user  User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   party DealParty? @relation(fields: [partyId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt])
@@ -317,13 +364,13 @@ model Notification {
 }
 
 model AdminAudit {
-  id          String   @id @default(cuid())
-  actorUserId String
-  action      String
-  targetType  String
-  targetId    String
-  metadataJson String  @default("{}")
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  actorUserId  String
+  action       String
+  targetType   String
+  targetId     String
+  metadataJson String   @default("{}")
+  createdAt    DateTime @default(now())
 
   actor User @relation(fields: [actorUserId], references: [id])
 

@@ -389,16 +389,19 @@ export async function signInvitationAction(
       signatureAssetKey: signatureKey,
     });
 
-    if (result.allSigned) {
+    const fullyExecuted = result.allSigned && !result.witnessesPending;
+    if (fullyExecuted) {
       await executeDealIfReady(deal.id);
     }
 
     await notifyDealParties(deal.id, {
-      type: result.allSigned ? "DEAL_EXECUTED" : "PARTY_SIGNED",
-      title: result.allSigned ? "Deal fully signed" : "Agreement signed by the other party",
-      body: result.allSigned
-        ? `All parties signed "${deal.title}". The executed record is available.`
-        : `${invitation.party.fullName} signed "${deal.title}".`,
+      type: fullyExecuted ? "DEAL_EXECUTED" : "PARTY_SIGNED",
+      title: fullyExecuted ? "Deal fully signed" : "Agreement signed by the other party",
+      body: fullyExecuted
+        ? `All parties and required witnesses completed "${deal.title}". The executed record is available.`
+        : result.witnessesPending
+          ? `All parties signed "${deal.title}". Required witnesses must attest before execution.`
+          : `${invitation.party.fullName} signed "${deal.title}".`,
       dealId: deal.id,
       excludePartyId: invitation.partyId,
       email: true,

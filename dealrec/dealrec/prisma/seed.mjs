@@ -3,17 +3,19 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { loadEnvFiles } from "../scripts/load-env.mjs";
 
-try {
-  process.loadEnvFile();
-} catch {
-  // Environment variables may be injected by the host.
+loadEnvFiles();
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not set.");
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./prisma/dev.db" }),
+  adapter: new PrismaPg({ connectionString }),
 });
 
 const CONSENT_TEXT_VERSION = "2026-01";
@@ -608,12 +610,128 @@ async function seedExecutedDeal(ada, tunde) {
   return { id: deal.id, created: true, documentId: draft.id };
 }
 
+
+async function seedWitnesses() {
+  const openDeal = await prisma.deal.findUnique({
+    where: { reference: reference("DR-2026-DEMO01") },
+    include: { parties: true, documents: true },
+  });
+  if (openDeal) {
+    const borrower = openDeal.parties.find((party) => !party.isCreator);
+    const document = openDeal.documents.find(
+      (item) => item.versionNumber === openDeal.currentVersion && item.documentType === "draft",
+    );
+    if (borrower && document) {
+      const tokenHash = sha256("demo-witness-2026");
+      const existing = await prisma.dealWitness.findUnique({ where: { tokenHash } });
+      const data = {
+        dealId: openDeal.id,
+        witnessedPartyId: borrower.id,
+        documentId: document.id,
+        fullName: "Ngozi Eze",
+        email: "ngozi.witness@example.com",
+        phoneNumber: "+2348012345678",
+        address: "12 Allen Avenue, Ikeja, Lagos",
+        occupation: "Trader",
+        relationship: "Colleague of the borrower",
+        status: "INVITED",
+        required: true,
+        expiresAt: new Date(Date.now() + 14 * 86_400_000),
+        revokedAt: null,
+        verifiedAt: null,
+        verifyMethod: null,
+        attestedAt: null,
+        authenticationMethod: null,
+        signatureType: null,
+        signatureAssetKey: null,
+        signerName: null,
+        documentSha256: document.sha256,
+      };
+      if (existing) {
+        await prisma.dealWitness.update({ where: { id: existing.id }, data });
+      } else {
+        const witness = await prisma.dealWitness.create({ data: { ...data, tokenHash } });
+        await appendEvent(openDeal.id, "WITNESS_INVITED", `${data.fullName} was invited as a witness for ${borrower.fullName}.`, null, {
+          witnessId: witness.id,
+          witnessedPartyId: borrower.id,
+          documentId: document.id,
+          required: true,
+        });
+      }
+    }
+  }
+
+  const executedDeal = await prisma.deal.findUnique({
+    where: { reference: reference("DR-2026-DEMO02") },
+    include: { parties: true, documents: true },
+  });
+  if (executedDeal) {
+    const client = executedDeal.parties.find((party) => !party.isCreator);
+    const document = executedDeal.documents.find(
+      (item) => item.versionNumber === executedDeal.currentVersion && item.documentType === "draft",
+    );
+    if (client && document) {
+      const tokenHash = sha256("demo-witness-attested-2026");
+      const existing = await prisma.dealWitness.findUnique({ where: { tokenHash } });
+      const attestedAt = new Date(Date.now() - 3 * 86_400_000);
+      const data = {
+        dealId: executedDeal.id,
+        witnessedPartyId: client.id,
+        documentId: document.id,
+        fullName: "Ngozi Eze",
+        email: "ngozi.witness@example.com",
+        phoneNumber: "+2348012345678",
+        address: "12 Allen Avenue, Ikeja, Lagos",
+        occupation: "Trader",
+        relationship: "Colleague of the client",
+        status: "ATTESTED",
+        required: true,
+        expiresAt: new Date(Date.now() + 14 * 86_400_000),
+        revokedAt: null,
+        verifiedAt: new Date(attestedAt.getTime() - 3600_000),
+        verifyMethod: "EMAIL_OTP",
+        attestedAt,
+        authenticationMethod: "EMAIL_VERIFIED",
+        signatureType: "typed",
+        signatureAssetKey: null,
+        signerName: "Ngozi Eze",
+        consentTextVersion: CONSENT_TEXT_VERSION,
+        documentSha256: document.sha256,
+      };
+      if (existing) {
+        await prisma.dealWitness.update({ where: { id: existing.id }, data });
+      } else {
+        const witness = await prisma.dealWitness.create({ data: { ...data, tokenHash } });
+        await appendEvent(executedDeal.id, "WITNESS_INVITED", `${data.fullName} was invited as a witness for ${client.fullName}.`, null, {
+          witnessId: witness.id,
+          witnessedPartyId: client.id,
+          documentId: document.id,
+          required: true,
+        });
+        await appendEvent(executedDeal.id, "WITNESS_VERIFIED", `${data.fullName}'s email control was verified for witness attestation.`, null, {
+          witnessId: witness.id,
+          method: "email",
+        });
+        await appendEvent(executedDeal.id, "WITNESS_ATTESTED", `${data.fullName} attested as a witness for ${client.fullName} on version 1.`, null, {
+          witnessId: witness.id,
+          witnessedPartyId: client.id,
+          documentId: document.id,
+          documentSha256: document.sha256,
+          authenticationMethod: "EMAIL_VERIFIED",
+          signatureType: "typed",
+        });
+      }
+    }
+  }
+}
+
 async function main() {
   const templateCount = await seedTemplates();
   const { admin, ada, tunde } = await seedUsers();
   const open = await seedOpenDeal(ada, tunde);
   const executed = await seedExecutedDeal(ada, tunde);
   const invited = await seedDemoInvitation();
+  await seedWitnesses();
 
   console.log(`Seeded ${templateCount} templates.`);
   console.log(`Admin: ${admin.email} / DealrecAdmin123!`);
@@ -623,6 +741,8 @@ async function main() {
   console.log(`Deal ${reference("DR-2026-DEMO02")}: ${executed.created ? "created" : "already exists"}`);
   console.log(`Public verification demo: /verify/demo-verify-2026`);
   if (invited) console.log(`Invitation demo: /invite/demo-invite-2026`);
+  console.log(`Pending witness demo: /witness/demo-witness-2026`);
+  console.log(`Attested witness demo: /witness/demo-witness-attested-2026`);
 }
 
 main()

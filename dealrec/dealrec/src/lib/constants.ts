@@ -8,6 +8,7 @@ export const SESSION_DAYS = 30;
 export const OTP_TTL_MINUTES = 10;
 export const OTP_MAX_ATTEMPTS = 5;
 export const INVITATION_DAYS = 14;
+export const WITNESS_DAYS = 14;
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_SIGNATURE_BYTES = 512 * 1024;
 
@@ -18,6 +19,7 @@ export const DEAL_STATUS = {
   CHANGE_REQUESTED: "CHANGE_REQUESTED",
   AWAITING_CREATOR_SIGNATURE: "AWAITING_CREATOR_SIGNATURE",
   AWAITING_OTHER_SIGNATURES: "AWAITING_OTHER_SIGNATURES",
+  AWAITING_WITNESSES: "AWAITING_WITNESSES",
   EXECUTED: "EXECUTED",
   ACTIVE: "ACTIVE",
   COMPLETED: "COMPLETED",
@@ -82,6 +84,26 @@ export const OBLIGATION_STATUS = {
   DISPUTED: "DISPUTED",
 } as const;
 
+export const WITNESS_STATUS = {
+  INVITED: "INVITED",
+  OPENED: "OPENED",
+  VERIFIED: "VERIFIED",
+  ATTESTED: "ATTESTED",
+  REVOKED: "REVOKED",
+  SUPERSEDED: "SUPERSEDED",
+} as const;
+
+export type WitnessStatus = (typeof WITNESS_STATUS)[keyof typeof WITNESS_STATUS];
+
+export const WITNESS_STATUS_LABEL: Record<string, string> = {
+  INVITED: "Invited",
+  OPENED: "Link opened",
+  VERIFIED: "Contact verified",
+  ATTESTED: "Attested",
+  REVOKED: "Revoked",
+  SUPERSEDED: "Superseded",
+};
+
 export const SEAL_STATUS = {
   ACTIVE: "ACTIVE",
   VOIDED: "VOIDED",
@@ -105,6 +127,12 @@ export const EVENT = {
   INVITATION_DECLINED: "INVITATION_DECLINED",
   SIGNATURE_INTENT_CONFIRMED: "SIGNATURE_INTENT_CONFIRMED",
   PARTY_SIGNED: "PARTY_SIGNED",
+  WITNESS_INVITED: "WITNESS_INVITED",
+  WITNESS_OPENED: "WITNESS_OPENED",
+  WITNESS_VERIFIED: "WITNESS_VERIFIED",
+  WITNESS_ATTESTED: "WITNESS_ATTESTED",
+  WITNESS_REVOKED: "WITNESS_REVOKED",
+  WITNESS_SUPERSEDED: "WITNESS_SUPERSEDED",
   DEAL_EXECUTED: "DEAL_EXECUTED",
   DEAL_COMPLETED: "DEAL_COMPLETED",
   DEAL_CANCELLED: "DEAL_CANCELLED",
@@ -155,6 +183,7 @@ export const DEAL_STATUS_LABEL: Record<string, string> = {
   CHANGE_REQUESTED: "Change requested",
   AWAITING_CREATOR_SIGNATURE: "Awaiting creator signature",
   AWAITING_OTHER_SIGNATURES: "Awaiting signatures",
+  AWAITING_WITNESSES: "Awaiting witnesses",
   EXECUTED: "Executed",
   ACTIVE: "Active",
   COMPLETED: "Completed",
@@ -176,6 +205,7 @@ export const PAYMENT_METHODS = [
 export const OTP_PURPOSE = {
   SIGNUP_EMAIL: "signup_email",
   INVITE_VERIFY: "invite_verify",
+  WITNESS_VERIFY: "witness_verify",
   PHONE_VERIFY: "phone_verify",
   PASSWORD_RESET: "password_reset",
 } as const;

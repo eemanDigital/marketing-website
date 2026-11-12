@@ -1,10 +1,7 @@
 import { defineConfig } from "prisma/config";
+import { loadEnvFiles } from "./scripts/load-env.mjs";
 
-try {
-  process.loadEnvFile();
-} catch {
-  // .env is optional in production; variables may be injected by the platform.
-}
+loadEnvFiles();
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -13,6 +10,6 @@ export default defineConfig({
     seed: "node prisma/seed.mjs",
   },
   datasource: {
-    url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
+    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
   },
 });

@@ -241,17 +241,102 @@ export type PartyForPdf = {
   signaturePng?: Buffer | null;
 };
 
+export type WitnessForPdf = {
+  role: string;
+  name: string;
+  address?: string | null;
+  occupation?: string | null;
+  relationship?: string | null;
+  signerName?: string | null;
+  signedAt?: Date | null;
+  authLabel?: string;
+  signaturePng?: Buffer | null;
+  attested?: boolean;
+};
+
 export type AgreementPdfInput = {
   reference: string;
   title: string;
   versionNumber: number;
   content: AgreementContent;
   parties: PartyForPdf[];
+  witnesses?: WitnessForPdf[];
   watermark: string;
   executed: boolean;
   generatedAt?: Date;
   documentId?: string;
 };
+
+
+async function drawWitnessBlocks(ctx: Ctx, witnesses: WitnessForPdf[] | undefined, executed: boolean) {
+  if (!witnesses || witnesses.length === 0) return;
+  drawHeading(ctx, "Witnesses");
+  drawParagraph(
+    ctx,
+    "A witness attestation records that the named person confirmed they observed the identified party sign this version. Remote attestation may not satisfy formalities that require physical presence, a notary, or a specific witness.",
+    { size: 8.5, color: MUTED, gap: 8 },
+  );
+
+  for (const witness of witnesses) {
+    ensureSpace(ctx, witness.signaturePng ? 98 : 78);
+    ctx.page.drawRectangle({
+      x: MARGIN,
+      y: ctx.y - 64,
+      width: ctx.pageWidth - MARGIN * 2,
+      height: 64,
+      borderColor: LINE,
+      borderWidth: 0.8,
+      color: witness.attested ? LIGHT : undefined,
+    });
+    ctx.page.drawText(sanitize(`${witness.role}: ${witness.name}`), {
+      x: MARGIN + 10,
+      y: ctx.y - 15,
+      size: 9.5,
+      font: ctx.bold,
+      color: INK,
+    });
+    const details = [witness.address, witness.occupation, witness.relationship].filter(Boolean).join(" | ");
+    if (details) {
+      ctx.page.drawText(sanitize(details).slice(0, 120), {
+        x: MARGIN + 10,
+        y: ctx.y - 29,
+        size: 8,
+        font: ctx.font,
+        color: MUTED,
+      });
+    }
+
+    if (executed && witness.signaturePng) {
+      try {
+        const image = await ctx.doc.embedPng(witness.signaturePng);
+        const scale = Math.min(110 / image.width, 22 / image.height);
+        ctx.page.drawImage(image, {
+          x: MARGIN + 10,
+          y: ctx.y - 51,
+          width: image.width * scale,
+          height: image.height * scale,
+        });
+      } catch {
+        // A corrupt witness signature image should not block the executed record.
+      }
+    }
+
+    const attestedLine =
+      executed && witness.attested
+        ? `Attested by ${witness.signerName || witness.name}${witness.signedAt ? ` - ${formatDateTime(witness.signedAt)}` : ""}${witness.authLabel ? ` (${witness.authLabel})` : ""}`
+        : executed
+          ? "No witness attestation was recorded before execution."
+          : "Witness signature: ______________________________";
+    ctx.page.drawText(sanitize(attestedLine).slice(0, 120), {
+      x: MARGIN + 10,
+      y: ctx.y - 58,
+      size: 8,
+      font: ctx.font,
+      color: witness.attested ? INK : MUTED,
+    });
+    ctx.y -= 74;
+  }
+}
 
 async function drawSignatureBlocks(ctx: Ctx, parties: PartyForPdf[], executed: boolean) {
   drawHeading(ctx, "Signatures");
@@ -376,6 +461,7 @@ export async function buildAgreementPdf(input: AgreementPdfInput) {
   }
 
   await drawSignatureBlocks(ctx, input.parties, input.executed);
+  await drawWitnessBlocks(ctx, input.witnesses, input.executed);
 
   if (input.content.notice) {
     drawHeading(ctx, "Important limitations");
@@ -392,6 +478,7 @@ export async function buildUploadedExecutionPdf(input: {
   title: string;
   versionNumber: number;
   parties: PartyForPdf[];
+  witnesses?: WitnessForPdf[];
   watermark: string;
   executed: boolean;
   generatedAt?: Date;
@@ -458,6 +545,7 @@ export async function buildUploadedExecutionPdf(input: {
   );
 
   await drawSignatureBlocks(ctx, input.parties, input.executed);
+  await drawWitnessBlocks(ctx, input.witnesses, input.executed);
 
   drawHeading(ctx, "Important limitations");
   drawParagraph(
@@ -491,6 +579,7 @@ export type CertificateInput = {
   issuedAt: Date;
   signers: { role: string; name: string; signerName: string; authLabel: string; signedAt: Date }[];
   parties: { role: string; name: string }[];
+  witnesses?: WitnessForPdf[];
 };
 
 export async function buildCertificatePdf(input: CertificateInput) {
@@ -543,6 +632,19 @@ export async function buildCertificatePdf(input: CertificateInput) {
       `${signer.role} - signed by ${signer.signerName} on ${formatDateTime(signer.signedAt)} (${signer.authLabel})`,
       { size: 9, color: MUTED },
     );
+  }
+
+  if (input.witnesses && input.witnesses.length > 0) {
+    drawHeading(ctx, "Witness attestations");
+    for (const witness of input.witnesses) {
+      drawParagraph(
+        ctx,
+        witness.attested
+          ? `${witness.role}: ${witness.name}${witness.address ? ` | ${witness.address}` : ""}${witness.occupation ? ` | ${witness.occupation}` : ""} - attested ${witness.signedAt ? formatDateTime(witness.signedAt) : ""} (${witness.authLabel ?? "contact verified"})`
+          : `${witness.role}: ${witness.name} - no attestation recorded before execution.`,
+        { size: 9, color: witness.attested ? INK : MUTED },
+      );
+    }
   }
 
   drawHeading(ctx, "What this certificate records");
