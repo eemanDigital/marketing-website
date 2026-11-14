@@ -4,12 +4,16 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { DEAL_STATUS, DOCUMENT_TYPE, EVENT, OBLIGATION_STATUS } from "@/lib/constants";
+import { CLOSED_STATUSES, DEAL_STATUS, DOCUMENT_TYPE, EVENT, OBLIGATION_STATUS } from "@/lib/constants";
 import {
   createDealRecord,
   createInvitation,
   createVersion,
+  allRequiredSigned,
+  allRequiredWitnessesAttested,
+  certificateDocument,
   executeDealIfReady,
+  executedDocument,
   getDealAccess,
   getFullDeal,
   paymentSummary,
@@ -26,7 +30,7 @@ import { parseDateInput, normalizeString } from "@/lib/utils";
 import { notifyDealParties } from "@/lib/notifications";
 import { putFile, safeFileName, validateUpload } from "@/lib/storage";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { parseOptionalMoney, requireText, validateContact } from "@/lib/validation";
+import { parseMoney, parseOptionalMoney, requireText, validateContact } from "@/lib/validation";
 import { type ActionState, errorMessage } from "../action-state";
 
 async function requireDealParty(dealId: string) {
@@ -39,6 +43,78 @@ function revalidateDeal(dealId: string) {
   revalidatePath("/dashboard");
   revalidatePath("/deals");
   revalidatePath(`/deals/${dealId}`);
+}
+
+function assertEditable(deal: { status: string }) {
+  if (CLOSED_STATUSES.includes(deal.status as never)) {
+    throw new Error("This deal is closed. Payment, obligation and comment records are read-only.");
+  }
+}
+
+function requireRevision(value: FormDataEntryValue | null) {
+  const revision = Number(value);
+  if (!Number.isInteger(revision) || revision < 1) {
+    throw new Error("This record could not be identified. Refresh the page and try again.");
+  }
+  return revision;
+}
+
+function iso(value: Date | null | undefined) {
+  return value ? value.toISOString() : null;
+}
+
+function paymentSnapshot(payment: {
+  amount: number;
+  paymentDate: Date;
+  paymentMethod: string;
+  reference: string | null;
+  notes: string | null;
+  receiptDocumentId: string | null;
+  verificationStatus: string;
+  revision: number;
+  voidedAt: Date | null;
+  voidReason: string | null;
+}) {
+  return {
+    amount: payment.amount,
+    paymentDate: payment.paymentDate.toISOString(),
+    paymentMethod: payment.paymentMethod,
+    reference: payment.reference,
+    notes: payment.notes,
+    receiptDocumentId: payment.receiptDocumentId,
+    verificationStatus: payment.verificationStatus,
+    revision: payment.revision,
+    voidedAt: iso(payment.voidedAt),
+    voidReason: payment.voidReason,
+  };
+}
+
+function obligationSnapshot(obligation: {
+  title: string;
+  description: string | null;
+  amount: number | null;
+  kind: string;
+  dueAt: Date | null;
+  status: string;
+  responsiblePartyId: string | null;
+  completedAt: Date | null;
+  cancelledAt: Date | null;
+  cancelReason: string | null;
+  revision: number;
+}) {
+  return {
+    title: obligation.title,
+    description: obligation.description,
+    amount: obligation.amount,
+    kind: obligation.kind,
+    dueAt: iso(obligation.dueAt),
+    status: obligation.status,
+    responsiblePartyId: obligation.responsiblePartyId,
+    completedAt: iso(obligation.completedAt),
+    cancelledAt: iso(obligation.cancelledAt),
+    cancelReason: obligation.cancelReason,
+    revision: obligation.revision,
+  };
 }
 
 async function finishDealSetup(dealId: string, creatorPartyId: string, counterpartyPartyId: string) {
@@ -197,8 +273,12 @@ export async function sendInvitationAction(formData: FormData) {
   const dealId = String(formData.get("dealId") ?? "");
   const { deal, user } = await requireDealParty(dealId);
   if (deal.creatorId !== user.id) throw new Error("Only the deal creator can send invitations.");
-  if (deal.status === DEAL_STATUS.EXECUTED || deal.status === DEAL_STATUS.CANCELLED) {
-    throw new Error("This deal can no longer be invited.");
+  if (
+    [DEAL_STATUS.CANCELLED, DEAL_STATUS.VOIDED, DEAL_STATUS.COMPLETED, DEAL_STATUS.SUPERSEDED].includes(
+      deal.status as never,
+    )
+  ) {
+    throw new Error("This deal can no longer be shared.");
   }
   const counterparty = deal.parties.find((party) => !party.isCreator);
   if (!counterparty) throw new Error("There is no other party to invite.");
@@ -211,9 +291,11 @@ export async function sendInvitationAction(formData: FormData) {
   });
 
   await notifyDealParties(dealId, {
-    type: "PARTY_INVITED",
-    title: "Agreement shared for review",
-    body: `${user.fullName} shared "${deal.title}" for review and signing.`,
+    type: invitation.accessOnly ? "INVITATION_CREATED" : "PARTY_INVITED",
+    title: invitation.accessOnly ? "New agreement access link" : "Agreement shared for review",
+    body: invitation.accessOnly
+      ? `${user.fullName} created a new access link for "${deal.title}". Existing signatures are unchanged.`
+      : `${user.fullName} shared "${deal.title}" for review and signing.`,
     dealId,
     excludePartyId: creatorParty?.id,
     email: true,
@@ -356,6 +438,138 @@ export async function addCommentAction(
   }
 }
 
+export async function editCommentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const dealId = String(formData.get("dealId") ?? "");
+  try {
+    const { deal, party, user } = await requireDealParty(dealId);
+    assertEditable(deal);
+    const commentId = String(formData.get("commentId") ?? "");
+    const comment = deal.comments.find((item) => item.id === commentId);
+    if (!comment) return { error: "Comment not found." };
+    if (comment.retractedAt) return { error: "A retracted comment cannot be edited." };
+    const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+    if (comment.authorPartyId !== actor?.id) {
+      return { error: "Only the author can edit this comment." };
+    }
+    const revision = requireRevision(formData.get("revision"));
+    if (revision !== comment.revision) {
+      return { error: "This comment changed while you were editing it. Refresh and try again." };
+    }
+    const message = requireText(formData.get("message"), "Comment", { min: 1, max: 3000 });
+    if (message === comment.message) {
+      return { error: "Change the comment before saving." };
+    }
+    const reason = requireText(formData.get("reason"), "Reason for editing", { min: 5, max: 500 });
+
+    await db.$transaction(async (tx) => {
+      const updated = await tx.dealComment.updateMany({
+        where: { id: commentId, dealId, authorPartyId: actor.id, revision, retractedAt: null },
+        data: {
+          message,
+          revision: { increment: 1 },
+          editedAt: new Date(),
+          editedByPartyId: actor.id,
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("This comment changed while you were editing it. Refresh and try again.");
+      }
+      await appendEvent(tx, {
+        dealId,
+        eventType: EVENT.COMMENT_EDITED,
+        description: `${actor.fullName} edited a comment. Reason: ${reason}`,
+        actorPartyId: actor.id,
+        metadata: {
+          commentId,
+          reason,
+          before: { message: comment.message, revision: comment.revision },
+          after: { message, revision: revision + 1 },
+        },
+      });
+    });
+
+    await notifyDealParties(dealId, {
+      type: "COMMENT_EDITED",
+      title: "Comment edited",
+      body: `${actor.fullName} edited a comment on "${deal.title}". Reason: ${reason}. The previous text remains in the audit log.`,
+      dealId,
+      excludePartyId: actor.id,
+    });
+
+    revalidateDeal(dealId);
+    return { ok: true, success: "Comment updated. The previous text remains in the audit log." };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
+}
+
+export async function retractCommentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const dealId = String(formData.get("dealId") ?? "");
+  try {
+    const { deal, party, user } = await requireDealParty(dealId);
+    assertEditable(deal);
+    const commentId = String(formData.get("commentId") ?? "");
+    const comment = deal.comments.find((item) => item.id === commentId);
+    if (!comment) return { error: "Comment not found." };
+    if (comment.retractedAt) return { error: "This comment is already retracted." };
+    const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+    if (comment.authorPartyId !== actor?.id) {
+      return { error: "Only the author can retract this comment." };
+    }
+    const revision = requireRevision(formData.get("revision"));
+    if (revision !== comment.revision) {
+      return { error: "This comment changed while you were editing it. Refresh and try again." };
+    }
+    const reason = requireText(formData.get("reason"), "Reason for retracting", { min: 5, max: 500 });
+
+    await db.$transaction(async (tx) => {
+      const updated = await tx.dealComment.updateMany({
+        where: { id: commentId, dealId, authorPartyId: actor.id, revision, retractedAt: null },
+        data: {
+          retractedAt: new Date(),
+          retractedByPartyId: actor.id,
+          retractionReason: reason,
+          revision: { increment: 1 },
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("This comment changed while you were editing it. Refresh and try again.");
+      }
+      await appendEvent(tx, {
+        dealId,
+        eventType: EVENT.COMMENT_RETRACTED,
+        description: `${actor.fullName} retracted a comment. Reason: ${reason}`,
+        actorPartyId: actor.id,
+        metadata: {
+          commentId,
+          reason,
+          message: comment.message,
+          revision: comment.revision,
+        },
+      });
+    });
+
+    await notifyDealParties(dealId, {
+      type: "COMMENT_RETRACTED",
+      title: "Comment retracted",
+      body: `${actor.fullName} retracted a comment on "${deal.title}". Reason: ${reason}. The retracted text remains in the audit record.`,
+      dealId,
+      excludePartyId: actor.id,
+    });
+
+    revalidateDeal(dealId);
+    return { ok: true, success: "Comment retracted. The text remains in the audit record." };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
+}
+
 export async function addObligationAction(
   _prev: ActionState,
   formData: FormData,
@@ -382,6 +596,7 @@ export async function addObligationAction(
           amount,
           dueAt,
           responsiblePartyId,
+          createdByPartyId: author?.id ?? null,
           kind: amount ? "PAYMENT" : "TASK",
         },
       });
@@ -390,7 +605,12 @@ export async function addObligationAction(
         eventType: EVENT.OBLIGATION_CREATED,
         description: `Obligation added: ${title}.`,
         actorPartyId: author?.id,
-        metadata: { obligationId: created.id, amount, dueAt: dueAt?.toISOString() },
+        metadata: {
+          obligationId: created.id,
+          amount,
+          dueAt: dueAt?.toISOString(),
+          responsiblePartyId,
+        },
       });
     });
 
@@ -409,41 +629,260 @@ export async function addObligationAction(
   }
 }
 
-export async function updateObligationAction(formData: FormData) {
+export async function updateObligationAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const dealId = String(formData.get("dealId") ?? "");
-  const obligationId = String(formData.get("obligationId") ?? "");
-  const status = String(formData.get("status") ?? "");
-  if (![OBLIGATION_STATUS.PENDING, OBLIGATION_STATUS.COMPLETED, OBLIGATION_STATUS.DISPUTED].includes(status as never)) {
-    throw new Error("Invalid obligation status.");
+  try {
+    const obligationId = String(formData.get("obligationId") ?? "");
+    const status = String(formData.get("status") ?? "");
+    if (
+      ![
+        OBLIGATION_STATUS.PENDING,
+        OBLIGATION_STATUS.COMPLETED,
+        OBLIGATION_STATUS.DISPUTED,
+      ].includes(status as never)
+    ) {
+      return { error: "Invalid obligation status." };
+    }
+    const { deal, party, user } = await requireDealParty(dealId);
+    assertEditable(deal);
+    const obligation = deal.obligations.find((item) => item.id === obligationId);
+    if (!obligation) return { error: "Obligation not found." };
+    if (obligation.status === OBLIGATION_STATUS.CANCELLED) {
+      return { error: "This obligation has been cancelled and cannot be updated." };
+    }
+    const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+    const before = obligationSnapshot(obligation);
+
+    await db.$transaction(async (tx) => {
+      const updated = await tx.obligation.updateMany({
+        where: {
+          id: obligationId,
+          dealId,
+          revision: obligation.revision,
+          status: { not: OBLIGATION_STATUS.CANCELLED },
+        },
+        data: {
+          status,
+          completedAt: status === OBLIGATION_STATUS.COMPLETED ? new Date() : null,
+          revision: { increment: 1 },
+          lastEditedAt: new Date(),
+          lastEditedByPartyId: actor?.id ?? null,
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("This obligation changed while you were updating it. Refresh and try again.");
+      }
+      await appendEvent(tx, {
+        dealId,
+        eventType:
+          status === OBLIGATION_STATUS.COMPLETED
+            ? EVENT.OBLIGATION_COMPLETED
+            : status === OBLIGATION_STATUS.DISPUTED
+              ? EVENT.OBLIGATION_DISPUTED
+              : EVENT.OBLIGATION_UPDATED,
+        description: `Obligation "${obligation.title}" marked ${status.toLowerCase()}.`,
+        actorPartyId: actor?.id,
+        metadata: {
+          obligationId,
+          before,
+          after: { ...before, status, revision: obligation.revision + 1 },
+        },
+      });
+    });
+
+    if (status === OBLIGATION_STATUS.COMPLETED || status === OBLIGATION_STATUS.DISPUTED) {
+      await notifyDealParties(dealId, {
+        type: status === OBLIGATION_STATUS.COMPLETED ? "OBLIGATION_COMPLETED" : "OBLIGATION_DISPUTED",
+        title: status === OBLIGATION_STATUS.COMPLETED ? "Obligation completed" : "Obligation disputed",
+        body: `${actor?.fullName ?? "A party"} marked "${obligation.title}" ${status.toLowerCase()} on "${deal.title}".`,
+        dealId,
+        excludePartyId: actor?.id,
+      });
+    }
+
+    revalidateDeal(dealId);
+    return { ok: true, success: `Obligation marked ${status.toLowerCase()}.` };
+  } catch (error) {
+    return { error: errorMessage(error) };
   }
-  const { deal, party, user } = await requireDealParty(dealId);
-  const obligation = deal.obligations.find((item) => item.id === obligationId);
-  if (!obligation) throw new Error("Obligation not found.");
-  const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+}
 
-  await db.$transaction(async (tx) => {
-    await tx.obligation.update({
-      where: { id: obligationId },
-      data: {
-        status,
-        completedAt: status === OBLIGATION_STATUS.COMPLETED ? new Date() : null,
-      },
+export async function editObligationAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const dealId = String(formData.get("dealId") ?? "");
+  try {
+    const { deal, party, user } = await requireDealParty(dealId);
+    assertEditable(deal);
+    const obligationId = String(formData.get("obligationId") ?? "");
+    const obligation = deal.obligations.find((item) => item.id === obligationId);
+    if (!obligation) return { error: "Obligation not found." };
+    if (obligation.status === OBLIGATION_STATUS.CANCELLED) {
+      return { error: "This obligation has been cancelled and cannot be edited." };
+    }
+
+    const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+    const allowed =
+      user.isAdmin ||
+      deal.creatorId === user.id ||
+      obligation.createdByPartyId === actor?.id ||
+      obligation.responsiblePartyId === actor?.id;
+    if (!allowed) {
+      return { error: "Only the creator, the responsible party, or the deal owner can edit this obligation." };
+    }
+
+    const revision = requireRevision(formData.get("revision"));
+    if (revision !== obligation.revision) {
+      return { error: "This obligation changed while you were editing it. Refresh and try again." };
+    }
+
+    const reason = requireText(formData.get("reason"), "Reason for editing", { min: 5, max: 500 });
+    const title = requireText(formData.get("title"), "Obligation title", { min: 2, max: 160 });
+    const description = normalizeString(formData.get("description"), 2000) || null;
+    const amount = parseOptionalMoney(formData.get("amount"));
+    const dueAt = parseDateInput(formData.get("dueAt"));
+    const responsiblePartyId = normalizeString(formData.get("responsiblePartyId"), 60) || null;
+    if (responsiblePartyId && !deal.parties.some((item) => item.id === responsiblePartyId)) {
+      return { error: "Choose a valid responsible party." };
+    }
+    const kind = amount ? "PAYMENT" : "TASK";
+    const before = obligationSnapshot(obligation);
+
+    await db.$transaction(async (tx) => {
+      const updated = await tx.obligation.updateMany({
+        where: {
+          id: obligationId,
+          dealId,
+          revision,
+          status: { not: OBLIGATION_STATUS.CANCELLED },
+        },
+        data: {
+          title,
+          description,
+          amount,
+          dueAt,
+          responsiblePartyId,
+          kind,
+          revision: { increment: 1 },
+          lastEditedAt: new Date(),
+          lastEditedByPartyId: actor?.id ?? null,
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("This obligation changed while you were editing it. Refresh and try again.");
+      }
+      await appendEvent(tx, {
+        dealId,
+        eventType: EVENT.OBLIGATION_UPDATED,
+        description: `Obligation "${obligation.title}" edited by ${actor?.fullName ?? "a party"}. Reason: ${reason}`,
+        actorPartyId: actor?.id,
+        metadata: {
+          obligationId,
+          reason,
+          before,
+          after: {
+            ...before,
+            title,
+            description,
+            amount,
+            kind,
+            dueAt: iso(dueAt),
+            responsiblePartyId,
+            revision: revision + 1,
+          },
+        },
+      });
     });
-    await appendEvent(tx, {
+
+    await notifyDealParties(dealId, {
+      type: "OBLIGATION_UPDATED",
+      title: "Obligation edited",
+      body: `${actor?.fullName ?? "A party"} edited "${obligation.title}" on "${deal.title}". Reason: ${reason}. The previous values remain in the audit log.`,
       dealId,
-      eventType:
-        status === OBLIGATION_STATUS.COMPLETED
-          ? EVENT.OBLIGATION_COMPLETED
-          : status === OBLIGATION_STATUS.DISPUTED
-            ? EVENT.OBLIGATION_DISPUTED
-            : EVENT.OBLIGATION_CREATED,
-      description: `Obligation "${obligation.title}" marked ${status.toLowerCase()}.`,
-      actorPartyId: actor?.id,
-      metadata: { obligationId },
+      excludePartyId: actor?.id,
     });
-  });
 
-  revalidateDeal(dealId);
+    revalidateDeal(dealId);
+    return { ok: true, success: "Obligation updated. The change is recorded in the audit log." };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
+}
+
+export async function cancelObligationAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const dealId = String(formData.get("dealId") ?? "");
+  try {
+    const { deal, party, user } = await requireDealParty(dealId);
+    assertEditable(deal);
+    const obligationId = String(formData.get("obligationId") ?? "");
+    const obligation = deal.obligations.find((item) => item.id === obligationId);
+    if (!obligation) return { error: "Obligation not found." };
+    if (obligation.status === OBLIGATION_STATUS.CANCELLED) {
+      return { error: "This obligation is already cancelled." };
+    }
+
+    const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+    const allowed =
+      user.isAdmin ||
+      deal.creatorId === user.id ||
+      obligation.createdByPartyId === actor?.id ||
+      obligation.responsiblePartyId === actor?.id;
+    if (!allowed) {
+      return { error: "Only the creator, the responsible party, or the deal owner can cancel this obligation." };
+    }
+
+    const revision = requireRevision(formData.get("revision"));
+    if (revision !== obligation.revision) {
+      return { error: "This obligation changed while you were editing it. Refresh and try again." };
+    }
+    const reason = requireText(formData.get("reason"), "Reason for cancelling", { min: 5, max: 500 });
+    const before = obligationSnapshot(obligation);
+
+    await db.$transaction(async (tx) => {
+      const updated = await tx.obligation.updateMany({
+        where: { id: obligationId, dealId, revision, status: { not: OBLIGATION_STATUS.CANCELLED } },
+        data: {
+          status: OBLIGATION_STATUS.CANCELLED,
+          cancelledAt: new Date(),
+          cancelledByPartyId: actor?.id ?? null,
+          cancelReason: reason,
+          revision: { increment: 1 },
+          lastEditedAt: new Date(),
+          lastEditedByPartyId: actor?.id ?? null,
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("This obligation changed while you were editing it. Refresh and try again.");
+      }
+      await appendEvent(tx, {
+        dealId,
+        eventType: EVENT.OBLIGATION_CANCELLED,
+        description: `Obligation "${obligation.title}" cancelled by ${actor?.fullName ?? "a party"}. Reason: ${reason}`,
+        actorPartyId: actor?.id,
+        metadata: { obligationId, reason, before },
+      });
+    });
+
+    await notifyDealParties(dealId, {
+      type: "OBLIGATION_CANCELLED",
+      title: "Obligation cancelled",
+      body: `${actor?.fullName ?? "A party"} cancelled "${obligation.title}" on "${deal.title}". Reason: ${reason}`,
+      dealId,
+      excludePartyId: actor?.id,
+    });
+
+    revalidateDeal(dealId);
+    return { ok: true, success: "Obligation cancelled. The record and reason remain in the audit log." };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
 }
 
 export async function recordPaymentAction(
@@ -486,7 +925,7 @@ export async function recordPaymentAction(
     }
 
     await db.$transaction(async (tx) => {
-      await tx.paymentRecord.create({
+      const created = await tx.paymentRecord.create({
         data: {
           dealId,
           recordedByPartyId: recorder.id,
@@ -505,7 +944,13 @@ export async function recordPaymentAction(
         eventType: EVENT.PAYMENT_RECORDED,
         description: `Payment of ${amount.toLocaleString("en-NG")} NGN recorded by ${recorder.fullName}.`,
         actorPartyId: recorder.id,
-        metadata: { amount: Math.round(amount), method: paymentMethod, reference, receipt: Boolean(receiptId) },
+        metadata: {
+          paymentId: created.id,
+          amount: Math.round(amount),
+          method: paymentMethod,
+          reference,
+          receipt: Boolean(receiptId),
+        },
       });
       if (receiptId) {
         await appendEvent(tx, {
@@ -532,6 +977,201 @@ export async function recordPaymentAction(
     return {
       ok: true,
       success: `Payment recorded.${summary?.outstanding !== null && summary ? ` Outstanding: ${summary.outstanding.toLocaleString("en-NG")} NGN.` : ""}`,
+    };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
+}
+
+export async function editPaymentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const dealId = String(formData.get("dealId") ?? "");
+  try {
+    const { deal, party, user } = await requireDealParty(dealId);
+    assertEditable(deal);
+    const paymentId = String(formData.get("paymentId") ?? "");
+    const payment = deal.payments.find((item) => item.id === paymentId);
+    if (!payment) return { error: "Payment not found." };
+    if (payment.voidedAt) return { error: "A voided payment cannot be edited. Record a new payment instead." };
+
+    const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+    const allowed =
+      user.isAdmin || deal.creatorId === user.id || payment.recordedByPartyId === actor?.id;
+    if (!allowed) {
+      return { error: "Only the person who recorded the payment or the deal owner can edit it." };
+    }
+
+    const revision = requireRevision(formData.get("revision"));
+    if (revision !== payment.revision) {
+      return { error: "This payment changed while you were editing it. Refresh and try again." };
+    }
+
+    const reason = requireText(formData.get("reason"), "Reason for editing", { min: 5, max: 500 });
+    const amount = parseMoney(formData.get("amount"), "Payment amount");
+    const paymentDate = parseDateInput(formData.get("paymentDate"));
+    if (!paymentDate) return { error: "Choose the payment date." };
+    const paymentMethod = requireText(formData.get("paymentMethod"), "Payment method", { max: 80 });
+    const reference = normalizeString(formData.get("reference"), 120) || null;
+    const notes = normalizeString(formData.get("notes"), 2000) || null;
+
+    let receiptId: string | null = payment.receiptDocumentId;
+    const file = formData.get("receipt");
+    if (file instanceof File && file.size > 0) {
+      const upload = await validateUpload(file);
+      const key = `deals/${dealId}/receipts/${Date.now()}-${safeFileName(upload.fileName)}`;
+      await putFile(key, upload.bytes);
+      const document = await db.dealDocument.create({
+        data: {
+          dealId,
+          versionNumber: deal.currentVersion,
+          documentType: DOCUMENT_TYPE.RECEIPT,
+          storageKey: key,
+          originalName: safeFileName(upload.fileName),
+          mimeType: upload.mimeType,
+          fileSize: upload.size,
+          sha256: upload.sha256,
+          createdBy: user.id,
+        },
+      });
+      receiptId = document.id;
+    }
+
+    const before = paymentSnapshot(payment);
+    const after = {
+      amount,
+      paymentDate: paymentDate.toISOString(),
+      paymentMethod,
+      reference,
+      notes,
+      receiptDocumentId: receiptId,
+      verificationStatus: "UNVERIFIED",
+      revision: revision + 1,
+      voidedAt: null,
+      voidReason: null,
+    };
+
+    await db.$transaction(async (tx) => {
+      const updated = await tx.paymentRecord.updateMany({
+        where: { id: paymentId, dealId, revision, voidedAt: null },
+        data: {
+          amount,
+          paymentDate,
+          paymentMethod,
+          reference,
+          notes,
+          receiptDocumentId: receiptId,
+          verificationStatus: "UNVERIFIED",
+          revision: { increment: 1 },
+          lastEditedAt: new Date(),
+          lastEditedByPartyId: actor?.id ?? null,
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("This payment changed while you were editing it. Refresh and try again.");
+      }
+      await appendEvent(tx, {
+        dealId,
+        eventType: EVENT.PAYMENT_UPDATED,
+        description: `Payment of ${payment.amount.toLocaleString("en-NG")} NGN edited by ${actor?.fullName ?? "a party"}. Reason: ${reason}`,
+        actorPartyId: actor?.id,
+        metadata: {
+          paymentId,
+          reason,
+          previousReceiptId: payment.receiptDocumentId,
+          receiptId,
+          before,
+          after,
+        },
+      });
+    });
+
+    await notifyDealParties(dealId, {
+      type: "PAYMENT_UPDATED",
+      title: "Payment record edited",
+      body: `${actor?.fullName ?? "A party"} edited a payment on "${deal.title}". Reason: ${reason}. The previous values remain in the audit log.`,
+      dealId,
+      excludePartyId: actor?.id,
+    });
+
+    const refreshed = await getFullDeal(dealId);
+    const summary = refreshed ? paymentSummary(refreshed) : null;
+    revalidateDeal(dealId);
+    return {
+      ok: true,
+      success: `Payment updated.${summary?.outstanding !== null && summary ? ` Outstanding: ${summary.outstanding.toLocaleString("en-NG")} NGN.` : ""}`,
+    };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
+}
+
+export async function voidPaymentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const dealId = String(formData.get("dealId") ?? "");
+  try {
+    const { deal, party, user } = await requireDealParty(dealId);
+    assertEditable(deal);
+    const paymentId = String(formData.get("paymentId") ?? "");
+    const payment = deal.payments.find((item) => item.id === paymentId);
+    if (!payment) return { error: "Payment not found." };
+    if (payment.voidedAt) return { error: "This payment is already voided." };
+
+    const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+    const allowed =
+      user.isAdmin || deal.creatorId === user.id || payment.recordedByPartyId === actor?.id;
+    if (!allowed) {
+      return { error: "Only the person who recorded the payment or the deal owner can void it." };
+    }
+
+    const revision = requireRevision(formData.get("revision"));
+    if (revision !== payment.revision) {
+      return { error: "This payment changed while you were editing it. Refresh and try again." };
+    }
+    const reason = requireText(formData.get("reason"), "Reason for voiding", { min: 5, max: 500 });
+    const before = paymentSnapshot(payment);
+
+    await db.$transaction(async (tx) => {
+      const updated = await tx.paymentRecord.updateMany({
+        where: { id: paymentId, dealId, revision, voidedAt: null },
+        data: {
+          voidedAt: new Date(),
+          voidedByPartyId: actor?.id ?? null,
+          voidReason: reason,
+          revision: { increment: 1 },
+          lastEditedAt: new Date(),
+          lastEditedByPartyId: actor?.id ?? null,
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("This payment changed while you were editing it. Refresh and try again.");
+      }
+      await appendEvent(tx, {
+        dealId,
+        eventType: EVENT.PAYMENT_VOIDED,
+        description: `Payment of ${payment.amount.toLocaleString("en-NG")} NGN voided by ${actor?.fullName ?? "a party"}. Reason: ${reason}`,
+        actorPartyId: actor?.id,
+        metadata: { paymentId, reason, before },
+      });
+    });
+
+    await notifyDealParties(dealId, {
+      type: "PAYMENT_VOIDED",
+      title: "Payment record voided",
+      body: `${actor?.fullName ?? "A party"} voided a payment on "${deal.title}". Reason: ${reason}. The voided record and receipt remain in the evidence record.`,
+      dealId,
+      excludePartyId: actor?.id,
+    });
+
+    const refreshed = await getFullDeal(dealId);
+    const summary = refreshed ? paymentSummary(refreshed) : null;
+    revalidateDeal(dealId);
+    return {
+      ok: true,
+      success: `Payment voided.${summary?.outstanding !== null && summary ? ` Outstanding: ${summary.outstanding.toLocaleString("en-NG")} NGN.` : ""}`,
     };
   } catch (error) {
     return { error: errorMessage(error) };
@@ -644,15 +1284,41 @@ export async function markCompletedAction(formData: FormData) {
   revalidateDeal(dealId);
 }
 
-export async function regenerateEvidenceAction(formData: FormData) {
+export async function regenerateEvidenceAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const dealId = String(formData.get("dealId") ?? "");
-  const { deal, user } = await requireDealParty(dealId);
-  if (deal.creatorId !== user.id && !user.isAdmin) {
-    throw new Error("Only the creator can regenerate the evidence record.");
+  try {
+    const { deal, user } = await requireDealParty(dealId);
+    if (deal.creatorId !== user.id && !user.isAdmin) {
+      return { error: "Only the creator can generate the execution record." };
+    }
+    if ([DEAL_STATUS.CANCELLED, DEAL_STATUS.VOIDED, DEAL_STATUS.SUPERSEDED].includes(deal.status as never)) {
+      return { error: "A closed deal cannot generate an execution record." };
+    }
+    const fullDeal = await getFullDeal(dealId);
+    if (!fullDeal) return { error: "Deal not found." };
+    if (!allRequiredSigned(fullDeal) || !allRequiredWitnessesAttested(fullDeal)) {
+      return { error: "All required parties and witnesses must be complete before generating the execution record." };
+    }
+
+    await executeDealIfReady(dealId);
+    const updatedDeal = await getFullDeal(dealId);
+    if (
+      !updatedDeal ||
+      !executedDocument(updatedDeal) ||
+      !certificateDocument(updatedDeal) ||
+      updatedDeal.seals.length === 0
+    ) {
+      return { error: "The execution record could not be completed. Check storage configuration and retry." };
+    }
+
+    revalidateDeal(dealId);
+    return { ok: true, success: "The executed agreement, certificate and verification seal are ready." };
+  } catch (error) {
+    return { error: errorMessage(error) };
   }
-  if (!(await getFullDeal(dealId))) throw new Error("Deal not found.");
-  await executeDealIfReady(dealId);
-  revalidateDeal(dealId);
 }
 
 export async function revokeInvitationAction(formData: FormData) {

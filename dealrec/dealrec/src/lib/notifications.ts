@@ -8,6 +8,35 @@ type NotificationInput = {
   dealId?: string | null;
 };
 
+const EMAIL_NOTIFICATION_TYPES = new Set([
+  "PARTY_INVITED",
+  "INVITATION_CREATED",
+  "DOCUMENT_VERSION_CREATED",
+  "COMMENT_ADDED",
+  "COMMENT_EDITED",
+  "COMMENT_RETRACTED",
+  "CHANGE_REQUESTED",
+  "INVITATION_ACCEPTED",
+  "INVITATION_DECLINED",
+  "PARTY_SIGNED",
+  "WITNESS_ACCEPTED",
+  "WITNESS_ATTESTED",
+  "DEAL_EXECUTED",
+  "PAYMENT_RECORDED",
+  "PAYMENT_UPDATED",
+  "PAYMENT_VOIDED",
+  "OBLIGATION_CREATED",
+  "OBLIGATION_UPDATED",
+  "OBLIGATION_COMPLETED",
+  "OBLIGATION_DISPUTED",
+  "OBLIGATION_CANCELLED",
+  "OBLIGATION_DUE_SOON",
+  "OBLIGATION_OVERDUE",
+  "DEAL_CANCELLED",
+  "DEAL_VOIDED",
+  "DEAL_COMPLETED",
+]);
+
 export async function notifyUser(userId: string, input: NotificationInput) {
   return db.notification.create({
     data: {
@@ -40,6 +69,7 @@ export async function notifyDealParties(
 ) {
   const parties = await db.dealParty.findMany({ where: { dealId } });
   const created = [];
+  const sendByEmail = input.email ?? EMAIL_NOTIFICATION_TYPES.has(input.type);
 
   for (const party of parties) {
     if (input.excludePartyId && party.id === input.excludePartyId) continue;
@@ -48,7 +78,7 @@ export async function notifyDealParties(
     } else {
       created.push(await notifyParty(party.id, input));
     }
-    if (input.email && party.email) {
+    if (sendByEmail && party.email) {
       await sendEmail({
         to: party.email,
         subject: `dealrec: ${input.title}`,

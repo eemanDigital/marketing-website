@@ -6,12 +6,19 @@ import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 
-export function ResetPasswordForm({ email = "" }: { email?: string }) {
+export function ResetPasswordForm({
+  email = "",
+  next,
+}: {
+  email?: string;
+  next?: string | null;
+}) {
   const [state, action] = useActionState(resetPasswordAction, null);
 
   return (
     <form action={action} className="space-y-4">
       <ActionMessage state={state} />
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Email address" htmlFor="email" required>
         <Input id="email" name="email" type="email" autoComplete="email" defaultValue={email} required />
       </Field>

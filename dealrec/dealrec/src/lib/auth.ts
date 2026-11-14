@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { isIP } from "node:net";
 import bcrypt from "bcryptjs";
 import type { User } from "@prisma/client";
 import { db } from "./db";
@@ -17,8 +18,11 @@ export async function verifyPassword(password: string, hash: string) {
 
 export async function getRequestMeta() {
   const headerList = await headers();
-  const forwarded = headerList.get("x-forwarded-for");
-  const ipAddress = forwarded?.split(",")[0]?.trim() || headerList.get("x-real-ip") || null;
+  const trustProxyHeaders = process.env.TRUST_PROXY_HEADERS === "true";
+  const forwarded = trustProxyHeaders ? headerList.get("x-forwarded-for") : null;
+  const realIp = trustProxyHeaders ? headerList.get("x-real-ip") : null;
+  const candidateIp = forwarded?.split(",")[0]?.trim() || realIp?.trim() || null;
+  const ipAddress = candidateIp && isIP(candidateIp) ? candidateIp : null;
   const userAgent = headerList.get("user-agent")?.slice(0, 500) ?? null;
   return { ipAddress, userAgent };
 }

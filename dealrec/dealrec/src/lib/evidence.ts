@@ -17,16 +17,8 @@ import {
 } from "./deals";
 import { createZip, type ZipEntry } from "./zip";
 import { appendEvent } from "./events";
-import { formatDateTime } from "./utils";
-
-function csvCell(value: unknown) {
-  const text = value === null || value === undefined ? "" : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
-function csv(rows: unknown[][]) {
-  return `${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}\r\n`;
-}
+import { formatDateTime, formatNaira } from "./utils";
+import { buildEvidenceRecordPdf, type EvidenceRecordSection } from "./pdf";
 
 export async function buildEvidencePack(dealId: string) {
   const deal = await getFullDeal(dealId);
@@ -41,10 +33,13 @@ export async function buildEvidencePack(dealId: string) {
 
   const files: ZipEntry[] = [];
   const manifestRows: string[] = [];
+  const manifestFiles: { name: string; sha256: string; bytes: number }[] = [];
 
   async function addFile(name: string, data: Buffer) {
+    const hash = sha256(data);
     files.push({ name, data });
-    manifestRows.push(`${sha256(data)}  ${String(data.length).padStart(8, " ")}  ${name}`);
+    manifestFiles.push({ name, sha256: hash, bytes: data.length });
+    manifestRows.push(`${hash}  ${String(data.length).padStart(8, " ")}  ${name}`);
   }
 
   const agreementBytes = await getFile(executed.storageKey);
@@ -52,104 +47,170 @@ export async function buildEvidencePack(dealId: string) {
   await addFile("agreement.pdf", agreementBytes);
   await addFile("certificate.pdf", certificateBytes);
 
-  const eventsCsv = csv([
-    ["sequence", "created_at_utc", "event_type", "actor_party", "description", "previous_hash", "event_hash"],
-    ...deal.events.map((event) => [
-      event.sequence,
-      event.createdAt.toISOString(),
-      event.eventType,
-      deal.parties.find((party) => party.id === event.actorPartyId)?.fullName ?? "System",
-      EVENT_LABEL[event.eventType] ?? event.eventType,
-      event.previousEventHash ?? "",
-      event.eventHash,
-    ]),
-  ]);
-  await addFile("events.csv", Buffer.from(eventsCsv, "utf8"));
+  const partyName = (partyId: string | null | undefined) =>
+    deal.parties.find((party) => party.id === partyId)?.fullName ?? "";
 
-  const commentsCsv = csv([
-    ["created_at_utc", "author", "kind", "message", "attachment"],
-    ...deal.comments.map((comment) => [
-      comment.createdAt.toISOString(),
-      comment.authorParty.fullName,
-      comment.kind,
-      comment.message,
-      comment.attachment?.originalName ?? "",
-    ]),
-  ]);
-  await addFile("comments.csv", Buffer.from(commentsCsv, "utf8"));
+  const commentItems = deal.comments.map((comment) => ({
+    title: `Comment by ${comment.authorParty.fullName} · ${comment.createdAt.toISOString()}`,
+    fields: [
+      {
+        label: "Record state",
+        value: comment.retractedAt
+          ? "RETRACTED (text preserved)"
+          : comment.editedAt
+            ? "EDITED"
+            : "ORIGINAL",
+      },
+      { label: "Author", value: comment.authorParty.fullName },
+      { label: "Kind", value: comment.kind },
+      { label: "Created (UTC)", value: comment.createdAt.toISOString() },
+      { label: "Message", value: comment.message },
+      { label: "Attachment", value: comment.attachment?.originalName ?? "" },
+      { label: "Revision", value: String(comment.revision) },
+      { label: "Edited (UTC)", value: comment.editedAt?.toISOString() ?? "" },
+      { label: "Edited by", value: partyName(comment.editedByPartyId) },
+      { label: "Retracted (UTC)", value: comment.retractedAt?.toISOString() ?? "" },
+      { label: "Retracted by", value: partyName(comment.retractedByPartyId) },
+      { label: "Retraction reason", value: comment.retractionReason ?? "" },
+    ],
+  }));
 
-  const paymentsCsv = csv([
-    ["payment_date", "amount_ngn", "method", "reference", "recorded_by", "verification", "notes", "receipt"],
-    ...deal.payments.map((payment) => [
-      payment.paymentDate.toISOString(),
-      payment.amount,
-      payment.paymentMethod,
-      payment.reference ?? "",
-      payment.recordedBy.fullName,
-      payment.verificationStatus,
-      payment.notes ?? "",
-      payment.receipt?.originalName ?? "",
-    ]),
-  ]);
-  await addFile("payments.csv", Buffer.from(paymentsCsv, "utf8"));
+  const paymentItems = deal.payments.map((payment) => ({
+    title: `Payment · ${formatNaira(payment.amount)} · ${payment.paymentDate.toISOString()}`,
+    fields: [
+      {
+        label: "Record state",
+        value: payment.voidedAt ? "VOIDED (record preserved)" : payment.lastEditedAt ? "EDITED" : "ORIGINAL",
+      },
+      { label: "Payment date", value: payment.paymentDate.toISOString() },
+      { label: "Amount", value: formatNaira(payment.amount) },
+      { label: "Method", value: payment.paymentMethod },
+      { label: "Reference", value: payment.reference ?? "" },
+      { label: "Recorded by", value: payment.recordedBy.fullName },
+      { label: "Verification", value: payment.verificationStatus },
+      { label: "Notes", value: payment.notes ?? "" },
+      { label: "Receipt", value: payment.receipt?.originalName ?? "" },
+      { label: "Revision", value: String(payment.revision) },
+      { label: "Edited (UTC)", value: payment.lastEditedAt?.toISOString() ?? "" },
+      { label: "Edited by", value: partyName(payment.lastEditedByPartyId) },
+      { label: "Voided (UTC)", value: payment.voidedAt?.toISOString() ?? "" },
+      { label: "Voided by", value: partyName(payment.voidedByPartyId) },
+      { label: "Void reason", value: payment.voidReason ?? "" },
+    ],
+  }));
 
-  const obligationsCsv = csv([
-    ["title", "kind", "amount_ngn", "due_date", "status", "completed_at"],
-    ...deal.obligations.map((obligation) => [
-      obligation.title,
-      obligation.kind,
-      obligation.amount ?? "",
-      obligation.dueAt?.toISOString() ?? "",
-      obligation.status,
-      obligation.completedAt?.toISOString() ?? "",
-    ]),
-  ]);
-  await addFile("obligations.csv", Buffer.from(obligationsCsv, "utf8"));
+  const obligationItems = deal.obligations.map((obligation) => ({
+    title: `Obligation · ${obligation.title}`,
+    fields: [
+      {
+        label: "Record state",
+        value: obligation.cancelledAt
+          ? "CANCELLED (record preserved)"
+          : obligation.lastEditedAt
+            ? "EDITED"
+            : "ORIGINAL",
+      },
+      { label: "Title", value: obligation.title },
+      { label: "Kind", value: obligation.kind },
+      { label: "Amount", value: obligation.amount === null ? "" : formatNaira(obligation.amount) },
+      { label: "Due date", value: obligation.dueAt?.toISOString() ?? "" },
+      { label: "Status", value: obligation.status },
+      { label: "Responsible party", value: partyName(obligation.responsiblePartyId) },
+      { label: "Created by", value: partyName(obligation.createdByPartyId) },
+      { label: "Revision", value: String(obligation.revision) },
+      { label: "Completed (UTC)", value: obligation.completedAt?.toISOString() ?? "" },
+      { label: "Cancelled (UTC)", value: obligation.cancelledAt?.toISOString() ?? "" },
+      { label: "Cancelled by", value: partyName(obligation.cancelledByPartyId) },
+      { label: "Cancel reason", value: obligation.cancelReason ?? "" },
+    ],
+  }));
 
   const versionWitnesses = deal.witnesses.filter(
     (witness) =>
       deal.documents.find((document) => document.id === witness.documentId)?.versionNumber ===
       executed.versionNumber,
   );
-  const witnessesCsv = csv([
-    [
-      "witness_for",
-      "witness_name",
-      "status",
-      "required",
-      "email",
-      "phone",
-      "address",
-      "occupation",
-      "relationship",
-      "invited_at_utc",
-      "verified_at_utc",
-      "attested_at_utc",
-      "signer_name",
-      "authentication",
-      "document_sha256",
-      "revoked_at_utc",
+
+  const witnessItems = versionWitnesses.map((witness) => ({
+    title: `Witness for ${partyName(witness.witnessedPartyId) || "party"} · ${witness.fullName}`,
+    fields: [
+      { label: "Status", value: witness.status },
+      { label: "Required", value: witness.required ? "yes" : "no" },
+      { label: "Email", value: witness.email ?? "" },
+      { label: "Phone", value: witness.phoneNumber ?? "" },
+      { label: "Address", value: witness.address ?? "" },
+      { label: "Occupation", value: witness.occupation ?? "" },
+      { label: "Relationship", value: witness.relationship ?? "" },
+      { label: "Invited (UTC)", value: witness.createdAt.toISOString() },
+      { label: "Verified (UTC)", value: witness.verifiedAt?.toISOString() ?? "" },
+      { label: "Accepted (UTC)", value: witness.acceptedAt?.toISOString() ?? "" },
+      { label: "Attested (UTC)", value: witness.attestedAt?.toISOString() ?? "" },
+      { label: "Signer name", value: witness.signerName ?? "" },
+      { label: "Authentication", value: witness.authenticationMethod ?? "" },
+      { label: "Document SHA-256", value: witness.documentSha256 ?? "" },
+      { label: "Revoked (UTC)", value: witness.revokedAt?.toISOString() ?? "" },
     ],
-    ...versionWitnesses.map((witness) => [
-      deal.parties.find((party) => party.id === witness.witnessedPartyId)?.fullName ?? "",
-      witness.fullName,
-      witness.status,
-      witness.required ? "yes" : "no",
-      witness.email ?? "",
-      witness.phoneNumber ?? "",
-      witness.address ?? "",
-      witness.occupation ?? "",
-      witness.relationship ?? "",
-      witness.createdAt.toISOString(),
-      witness.verifiedAt?.toISOString() ?? "",
-      witness.attestedAt?.toISOString() ?? "",
-      witness.signerName ?? "",
-      witness.authenticationMethod ?? "",
-      witness.documentSha256 ?? "",
-      witness.revokedAt?.toISOString() ?? "",
-    ]),
-  ]);
-  await addFile("witnesses.csv", Buffer.from(witnessesCsv, "utf8"));
+  }));
+
+  const eventItems = deal.events.map((event) => ({
+    title: `Event ${event.sequence} · ${EVENT_LABEL[event.eventType] ?? event.eventType}`,
+    fields: [
+      { label: "Time (UTC)", value: event.createdAt.toISOString() },
+      { label: "Actor", value: partyName(event.actorPartyId) || "System" },
+      { label: "Description", value: event.description },
+      {
+        label: "Metadata",
+        value: event.metadataJson && event.metadataJson !== "{}" ? event.metadataJson : "",
+      },
+      { label: "Previous event hash", value: event.previousEventHash ?? "" },
+      { label: "Event hash", value: event.eventHash },
+    ],
+  }));
+
+  const sections: EvidenceRecordSection[] = [
+    {
+      title: "Comments and change requests",
+      description:
+        "Comments are preserved in creation order. Retracted comments remain visible with the reason for retraction.",
+      items: commentItems,
+      emptyText: "No comments were recorded.",
+    },
+    {
+      title: "Payments and receipts",
+      description:
+        "Voided payments remain in the record with the void reason and are excluded from active payment totals.",
+      items: paymentItems,
+      emptyText: "No payments were recorded.",
+    },
+    {
+      title: "Obligations",
+      description: "Cancelled obligations remain in the record with the cancellation reason.",
+      items: obligationItems,
+      emptyText: "No obligations were recorded.",
+    },
+    {
+      title: "Witnesses",
+      description: "Witnesses listed for the executed document version.",
+      items: witnessItems,
+      emptyText: "No witnesses were recorded for this version.",
+    },
+    {
+      title: "Audit trail",
+      description:
+        "Hash-chained events in sequence order. Each event hash covers the event details and the previous event hash.",
+      items: eventItems,
+      emptyText: "No events were recorded.",
+    },
+  ];
+
+  const generatedAt = new Date();
+  const recordPdf = await buildEvidenceRecordPdf({
+    reference: deal.reference,
+    title: `${deal.title} — evidence record`,
+    generatedAt,
+    sections,
+  });
+  await addFile("record.pdf", Buffer.from(recordPdf));
 
   for (const witness of versionWitnesses) {
     if (!witness.signatureAssetKey) continue;
@@ -175,8 +236,15 @@ export async function buildEvidencePack(dealId: string) {
   const verificationToken = seal.verificationToken;
   const url = verificationUrl(verificationToken);
   const partiesLines = deal.parties.map((party) => `- ${party.role}: ${party.fullName}`).join("\n");
-  const signerLines = deal.signatures
-    .filter((signature) => signature.documentId === executed.id)
+  const executedVersionDocumentIds = new Set(
+    deal.documents
+      .filter((document) => document.versionNumber === executed.versionNumber)
+      .map((document) => document.id),
+  );
+  const executedSignatures = deal.signatures.filter((signature) =>
+    executedVersionDocumentIds.has(signature.documentId),
+  );
+  const signerLines = executedSignatures
     .map(
       (signature) =>
         `- ${signature.party.role}: ${signature.signerName} | ${formatDateTime(signature.signedAt)} | ${AUTH_LEVEL_LABEL[signature.authenticationMethod] ?? signature.authenticationMethod} | document hash ${signature.documentSha256}`,
@@ -189,7 +257,7 @@ export async function buildEvidencePack(dealId: string) {
       if (witness.status === WITNESS_STATUS.ATTESTED) {
         return `- Witness for ${witnessedParty?.fullName ?? "party"}: ${witness.fullName}${witness.address ? ` | ${witness.address}` : ""} | ${formatDateTime(witness.attestedAt)} | ${AUTH_LEVEL_LABEL[witness.authenticationMethod ?? ""] ?? witness.authenticationMethod ?? "contact verified"} | document hash ${witness.documentSha256 ?? ""}`;
       }
-      return `- Witness for ${witnessedParty?.fullName ?? "party"}: ${witness.fullName} | ${witness.status}${witness.required ? " (required)" : " (optional)"}`;
+      return `- Witness for ${witnessedParty?.fullName ?? "party"}: ${witness.fullName} | ${witness.status}${witness.acceptedAt ? ` | accepted ${formatDateTime(witness.acceptedAt)}` : ""}${witness.required ? " (required)" : " (optional)"}`;
     })
     .join("\n");
 
@@ -217,16 +285,25 @@ ${witnessLines || "- No witnesses recorded"}
 FILES IN THIS PACK
 ${manifestRows.join("\n")}
 
-HOW TO CHECK THE AGREEMENT FILE
-1. Compute the SHA-256 hash of agreement.pdf.
-2. Compare it with the executed document SHA-256 above.
-3. Visit the verification URL, or scan the QR code on the certificate page.
-4. You may upload the PDF on the verification page to compare its hash with the platform record.
+RECORD FILES
+Comments, payments, obligations, witnesses and the audit trail are recorded in record.pdf,
+not spreadsheets. Spreadsheet files can be silently reordered, reformatted, altered by formulas
+or used to inject formulas into other systems. The PDF is a sealed presentation of the platform
+record and remains readable without spreadsheet software.
+
+INTEGRITY AND HOW TO CHECK THIS PACK
+1. Compute the SHA-256 hash of each file and compare it with manifest.txt.
+2. Compute the SHA-256 hash of this ZIP file and compare it with an evidence pack fingerprint
+   shown on the verification page for this deal.
+3. For agreement.pdf, compare its SHA-256 with the executed document SHA-256 above, or upload it
+   on the verification page.
+4. For the audit trail, compare each event hash with the previous event hash in record.pdf. The
+   platform also verifies the full chain internally.
 
 LIMITATIONS
 This pack is intended to preserve a clear record of the agreement and events. It is not legal advice and does not guarantee payment, performance, enforceability or admissibility in any court. A hash match shows the file is identical to the file recorded by the platform. A mismatch shows the file differs, but does not by itself prove fraud. The platform seal is not an NBA stamp or seal, notarial seal, government certification or guarantee of legal validity. This certificate is not a Section 84 Evidence Act certificate unless separately prepared through an approved legal process.
 
-Generated: ${new Date().toISOString()}
+Generated: ${generatedAt.toISOString()}
 `;
 
   await addFile("README.txt", Buffer.from(summary, "utf8"));
@@ -240,7 +317,7 @@ Generated: ${new Date().toISOString()}
         dealId: deal.id,
         eventType: EVENT.EVIDENCE_PACK_GENERATED,
         description: "Evidence pack generated.",
-        metadata: { files: files.length, zipSha256: sha256(zip) },
+        metadata: { files: manifestFiles, zipSha256: sha256(zip) },
       });
     });
   } catch {
@@ -258,7 +335,7 @@ Generated: ${new Date().toISOString()}
       verificationToken,
       status: seal.status,
       executedAt: deal.executedAt,
-      signatories: deal.signatures.filter((signature) => signature.documentId === executed.id).length,
+      signatories: executedSignatures.length,
       witnesses: versionWitnesses.length,
       eventCount: deal.events.length + 1,
       paymentCount: deal.payments.length,

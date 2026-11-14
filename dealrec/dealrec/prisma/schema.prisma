@@ -204,14 +204,21 @@ model DealEvent {
 }
 
 model DealComment {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   dealId               String
   authorPartyId        String
   message              String
   attachmentDocumentId String?
   correctionOfId       String?
-  kind                 String   @default("COMMENT")
-  createdAt            DateTime @default(now())
+  kind                 String    @default("COMMENT")
+  revision             Int       @default(1)
+  editedAt             DateTime?
+  editedByPartyId      String?
+  retractedAt          DateTime?
+  retractedByPartyId   String?
+  retractionReason     String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt @default(now())
 
   deal         Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
   authorParty  DealParty     @relation(fields: [authorPartyId], references: [id], onDelete: Cascade)
@@ -223,18 +230,25 @@ model DealComment {
 }
 
 model PaymentRecord {
-  id                 String   @id @default(cuid())
-  dealId             String
-  recordedByPartyId  String
-  amount             Int
-  currency           String   @default("NGN")
-  paymentDate        DateTime
-  paymentMethod      String
-  reference          String?
-  verificationStatus String   @default("UNVERIFIED")
-  receiptDocumentId  String?
-  notes              String?
-  createdAt          DateTime @default(now())
+  id                    String    @id @default(cuid())
+  dealId                String
+  recordedByPartyId     String
+  amount                Int
+  currency              String    @default("NGN")
+  paymentDate           DateTime
+  paymentMethod         String
+  reference             String?
+  verificationStatus    String    @default("UNVERIFIED")
+  receiptDocumentId     String?
+  notes                 String?
+  revision              Int       @default(1)
+  lastEditedAt          DateTime?
+  lastEditedByPartyId   String?
+  voidedAt              DateTime?
+  voidedByPartyId       String?
+  voidReason            String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt @default(now())
 
   deal       Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
   recordedBy DealParty     @relation(fields: [recordedByPartyId], references: [id], onDelete: Cascade)
@@ -244,17 +258,25 @@ model PaymentRecord {
 }
 
 model Obligation {
-  id                 String    @id @default(cuid())
-  dealId             String
-  responsiblePartyId String?
-  title              String
-  description        String?
-  amount             Int?
-  kind               String    @default("PAYMENT")
-  dueAt              DateTime?
-  status             String    @default("PENDING")
-  completedAt        DateTime?
-  createdAt          DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  dealId              String
+  responsiblePartyId  String?
+  createdByPartyId    String?
+  title               String
+  description         String?
+  amount              Int?
+  kind                String    @default("PAYMENT")
+  dueAt               DateTime?
+  status              String    @default("PENDING")
+  completedAt         DateTime?
+  revision            Int       @default(1)
+  lastEditedAt        DateTime?
+  lastEditedByPartyId String?
+  cancelledAt         DateTime?
+  cancelledByPartyId  String?
+  cancelReason        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt @default(now())
 
   deal        Deal       @relation(fields: [dealId], references: [id], onDelete: Cascade)
   responsible DealParty? @relation(fields: [responsiblePartyId], references: [id])
@@ -300,6 +322,7 @@ model DealWitness {
   expiresAt            DateTime
   revokedAt            DateTime?
   verifiedAt           DateTime?
+  acceptedAt           DateTime?
   verifyMethod         String?
   lastOpenedAt         DateTime?
   openCount            Int       @default(0)

@@ -7,7 +7,19 @@ import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 
-export function SignInForm({ reset }: { reset?: boolean }) {
+export function SignInForm({
+  reset,
+  next,
+  email,
+  lockEmail = false,
+  forgotHref,
+}: {
+  reset?: boolean;
+  next?: string | null;
+  email?: string;
+  lockEmail?: boolean;
+  forgotHref?: string;
+}) {
   const [state, action] = useActionState(signInAction, null);
 
   return (
@@ -16,15 +28,29 @@ export function SignInForm({ reset }: { reset?: boolean }) {
         <ActionMessage state={{ success: "Password reset. Sign in with your new password." }} />
       ) : null}
       <ActionMessage state={state} />
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Email address" htmlFor="email" required>
-        <Input id="email" name="email" type="email" autoComplete="email" inputMode="email" placeholder="you@example.com" required />
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="you@example.com"
+          defaultValue={email}
+          readOnly={lockEmail}
+          required
+        />
       </Field>
       <div>
         <div className="mb-1.5 flex items-center justify-between">
           <label htmlFor="password" className="text-sm font-semibold text-ink-800">
             Password
           </label>
-          <Link href="/forgot-password" className="text-[12px] font-semibold text-brand-700 hover:underline">
+          <Link
+            href={forgotHref ?? "/forgot-password"}
+            className="text-[12px] font-semibold text-brand-700 hover:underline"
+          >
             Forgot password?
           </Link>
         </div>

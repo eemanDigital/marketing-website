@@ -14,7 +14,6 @@ import {
   MessageSquare,
   PackageCheck,
   QrCode,
-  RefreshCw,
   Send,
   ShieldCheck,
   Trash2,
@@ -48,16 +47,16 @@ import {
   formatDate,
   formatDateTime,
   formatNaira,
+  cn,
   shortHash,
   titleCase,
+  toDateInputValue,
 } from "@/lib/utils";
 import {
   cancelDealAction,
   markCompletedAction,
-  regenerateEvidenceAction,
   revokeInvitationAction,
   sendInvitationAction,
-  updateObligationAction,
   voidDealAction,
 } from "@/server/actions/deals";
 import { Badge } from "@/components/ui/badge";
@@ -68,10 +67,13 @@ import { Alert } from "@/components/ui/alert";
 import { CopyButton } from "@/components/ui/copy-button";
 import { SignPanel } from "@/components/deals/sign-panel";
 import { VersionForm } from "@/components/deals/version-form";
-import { CommentForm } from "@/components/deals/comment-form";
+import { CommentThread } from "@/components/deals/comment-thread";
 import { PaymentForm } from "@/components/deals/payment-form";
+import { PaymentRecordActions } from "@/components/deals/payment-record-actions";
 import { ObligationForm } from "@/components/deals/obligation-form";
+import { ObligationRecordActions } from "@/components/deals/obligation-record-actions";
 import { WitnessPanel } from "@/components/deals/witness-panel";
+import { ExecutionArtifactsButton } from "@/components/deals/execution-artifacts-button";
 
 export const metadata = { title: "Deal workspace" };
 
@@ -111,7 +113,12 @@ export default async function DealWorkspacePage({
   const values = safeValues(deal);
   const document = currentDocument(deal);
   const progress = workspaceProgress(deal);
+  const executionReady =
+    progress.signed === progress.required &&
+    progress.witnessesAttested === progress.witnessesRequired &&
+    ![DEAL_STATUS.CANCELLED, DEAL_STATUS.VOIDED, DEAL_STATUS.SUPERSEDED].includes(deal.status as never);
   const summary = paymentSummary(deal);
+  const activePayments = deal.payments.filter((payment) => !payment.voidedAt);
   const seal = deal.seals[0] ?? null;
   const executed = executedDocument(deal);
   const certificate = certificateDocument(deal);
@@ -119,6 +126,7 @@ export default async function DealWorkspacePage({
   const otherParty = deal.parties.find((item) => !item.isCreator);
   const me = party ?? deal.parties.find((item) => item.userId === currentUser.id) ?? creatorParty;
   const mySigned = me ? partyHasSigned(deal, me.id) : false;
+  const otherPartySigned = otherParty ? partyHasSigned(deal, otherParty.id) : false;
   const openForSigning = canSign(deal);
   const tone = statusTone(deal.status) as "success" | "warning" | "danger" | "neutral";
   const activeInvitation = getActiveInvitation(deal);
@@ -140,11 +148,13 @@ export default async function DealWorkspacePage({
       statusLabel: WITNESS_STATUS_LABEL[witness.status] ?? witness.status,
       required: witness.required,
       expiresLabel: formatDate(witness.expiresAt),
+      acceptedLabel: witness.acceptedAt ? formatDateTime(witness.acceptedAt) : null,
       attestedLabel: witness.attestedAt ? formatDateTime(witness.attestedAt) : null,
       openCount: witness.openCount,
       canManage:
         !isClosed &&
         deal.status !== DEAL_STATUS.EXECUTED &&
+        !deal.executedAt &&
         (isCreator ||
           currentUser.isAdmin ||
           me?.id === witness.addedByPartyId ||
@@ -154,6 +164,7 @@ export default async function DealWorkspacePage({
       canResend:
         !isClosed &&
         deal.status !== DEAL_STATUS.EXECUTED &&
+        !deal.executedAt &&
         witness.status !== WITNESS_STATUS.ATTESTED &&
         witness.status !== WITNESS_STATUS.REVOKED &&
         witness.status !== WITNESS_STATUS.SUPERSEDED &&
@@ -201,6 +212,10 @@ export default async function DealWorkspacePage({
         <div className="flex flex-wrap gap-2">
           {executed && seal ? (
             <>
+              <Link href={`/deals/${deal.id}/documents/${executed.id}`} className={buttonStyles({ size: "sm" })}>
+                <Download className="h-4 w-4" aria-hidden />
+                Executed agreement
+              </Link>
               <Link href={`/deals/${deal.id}/evidence`} className={buttonStyles({ size: "sm" })}>
                 <Download className="h-4 w-4" aria-hidden />
                 Evidence pack
@@ -408,15 +423,36 @@ export default async function DealWorkspacePage({
               </Card>
             ) : (
               <Card>
-                <CardHeader title="No seal yet" description="A seal is issued after all required parties sign." />
-                <CardBody>
+                <CardHeader
+                  title={executionReady ? "Execution record needs attention" : "No seal yet"}
+                  description={
+                    executionReady
+                      ? "All signing requirements are complete, but the executed files are not ready."
+                      : "A seal is issued after all required parties and witnesses complete signing."
+                  }
+                />
+                <CardBody className="space-y-3">
                   <p className="text-[12px] leading-5 text-ink-500">
-                    Once every required party signs the same document version, dealrec generates an
-                    executed copy, certificate, verification page and evidence pack.
+                    {executionReady
+                      ? "The executed PDF could not be generated. Check storage configuration, then retry."
+                      : "Once every required party signs the same document version and required witnesses attest, dealrec generates an executed copy, certificate, verification page and evidence pack."}
                   </p>
+                  {executionReady && isCreator ? <ExecutionArtifactsButton dealId={deal.id} /> : null}
                 </CardBody>
               </Card>
             )}
+
+            {executionReady && (!executed || !seal || !certificate) && seal ? (
+              <Card className="border-sand-200 bg-sand-50">
+                <CardHeader title="Execution artifacts are incomplete" />
+                <CardBody>
+                  <p className="mb-3 text-[12px] leading-5 text-ink-600">
+                    Existing executed documents are preserved. This can create any missing certificate or seal record.
+                  </p>
+                  {isCreator ? <ExecutionArtifactsButton dealId={deal.id} /> : null}
+                </CardBody>
+              </Card>
+            ) : null}
 
             <Card>
               <CardHeader title="Next steps" />
@@ -500,12 +536,12 @@ export default async function DealWorkspacePage({
             <Card>
               <CardHeader
                 title={`Version ${deal.currentVersion}`}
-                description={document ? `${DOCUMENT_LABEL[document.documentType] ?? document.documentType} · ${formatDate(document.createdAt)}` : "No document generated yet."}
+                description={document ? `Source PDF · ${DOCUMENT_LABEL[document.documentType] ?? document.documentType} · ${formatDate(document.createdAt)}` : "No document generated yet."}
                 action={
                   document ? (
                     <Link href={`/deals/${deal.id}/documents/${document.id}`} className={buttonStyles({ variant: "outline", size: "sm" })}>
                       <Download className="h-3.5 w-3.5" aria-hidden />
-                      PDF
+                      Source PDF
                     </Link>
                   ) : null
                 }
@@ -560,6 +596,72 @@ export default async function DealWorkspacePage({
                     copy adds a signature and verification page.
                   </Alert>
                 ) : null}
+                {!executed && progress.signed > 0 ? (
+                  <Alert tone="info" title="Signature recorded">
+                    The source agreement is preserved and is not rewritten after signing. The executed
+                    copy with signature images and witness records becomes available after every required
+                    party signs and every required witness attests.
+                  </Alert>
+                ) : null}
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader
+                title="Witness acknowledgments"
+                description="Acceptance and attestation records for the current version."
+              />
+              <CardBody className="space-y-2">
+                {witnessViews.length === 0 ? (
+                  <p className="text-[12px] text-ink-500">No witnesses were invited for this version.</p>
+                ) : (
+                  witnessViews.map((witness) => (
+                    <div
+                      key={witness.id}
+                      className="flex items-start justify-between gap-3 rounded-xl border border-ink-100 px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-semibold text-ink-800">
+                          {witness.fullName}
+                          {witness.required ? " · Required" : " · Optional"}
+                        </p>
+                        <p className="text-[11px] text-ink-500">
+                          Witness for {witness.witnessedPartyName}
+                        </p>
+                        {witness.acceptedLabel ? (
+                          <p className="text-[10px] text-ink-400">
+                            Accepted intention {witness.acceptedLabel}
+                          </p>
+                        ) : null}
+                        {witness.attestedLabel ? (
+                          <p className="text-[10px] text-ink-400">
+                            Attested {witness.attestedLabel}
+                          </p>
+                        ) : null}
+                      </div>
+                      <Badge
+                        tone={
+                          witness.status === WITNESS_STATUS.ATTESTED
+                            ? "success"
+                            : witness.status === WITNESS_STATUS.ACCEPTED ||
+                                witness.status === WITNESS_STATUS.VERIFIED ||
+                                witness.status === WITNESS_STATUS.OPENED
+                              ? "info"
+                              : witness.status === WITNESS_STATUS.REVOKED ||
+                                  witness.status === WITNESS_STATUS.SUPERSEDED
+                                ? "neutral"
+                                : "warning"
+                        }
+                      >
+                        {witness.statusLabel}
+                      </Badge>
+                    </div>
+                  ))
+                )}
+                <p className="pt-1 text-[10px] leading-4 text-ink-400">
+                  The signed source PDF is not changed after signing. Witness acceptance and attestation
+                  are included in the executed copy generated after every requirement is complete.
+                </p>
               </CardBody>
             </Card>
 
@@ -670,40 +772,13 @@ export default async function DealWorkspacePage({
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader title="Comments and change requests" description="Visible to all deal parties." />
-            <CardBody className="space-y-4">
-              {deal.comments.length === 0 ? (
-                <p className="text-[12px] text-ink-500">No comments yet.</p>
-              ) : (
-                deal.comments.map((comment) => (
-                  <div key={comment.id} className="rounded-xl border border-ink-100 p-3">
-                    <div className="flex items-center gap-2">
-                      <Avatar name={comment.authorParty.fullName} size="sm" />
-                      <div>
-                        <p className="text-[12px] font-semibold text-ink-800">{comment.authorParty.fullName}</p>
-                        <p className="text-[10px] text-ink-400">{formatDateTime(comment.createdAt)}</p>
-                      </div>
-                      {comment.kind !== "COMMENT" ? (
-                        <Badge tone="warning" className="ml-auto">{titleCase(comment.kind)}</Badge>
-                      ) : null}
-                    </div>
-                    <p className="mt-2 whitespace-pre-line text-[12px] leading-5 text-ink-600">{comment.message}</p>
-                    {comment.attachment ? (
-                      <a
-                        href={`/deals/${deal.id}/documents/${comment.attachment.id}`}
-                        className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700"
-                      >
-                        <FileText className="h-3 w-3" aria-hidden />
-                        {comment.attachment.originalName ?? "Attachment"}
-                      </a>
-                    ) : null}
-                  </div>
-                ))
-              )}
-              {!isClosed ? <CommentForm dealId={deal.id} /> : null}
-            </CardBody>
-          </Card>
+          <CommentThread
+            dealId={deal.id}
+            comments={deal.comments}
+            parties={deal.parties}
+            currentPartyId={party?.id ?? null}
+            isClosed={isClosed}
+          />
         </div>
       ) : null}
 
@@ -735,38 +810,93 @@ export default async function DealWorkspacePage({
             </Card>
 
             <Card>
-              <CardHeader title="Payments" description={`${deal.payments.length} recorded`} />
+              <CardHeader
+                title="Payments"
+                description={`${activePayments.length} active · ${deal.payments.length} total`}
+              />
               <CardBody className="space-y-2">
                 {deal.payments.length === 0 ? (
                   <p className="text-[12px] text-ink-500">No payments recorded yet.</p>
                 ) : (
-                  deal.payments.map((payment) => (
-                    <div key={payment.id} className="rounded-xl border border-ink-100 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[14px] font-bold text-ink-900">{formatNaira(payment.amount)}</p>
-                          <p className="text-[11px] text-ink-500">
-                            {formatDate(payment.paymentDate)} · {payment.paymentMethod}
-                          </p>
+                  deal.payments.map((payment) => {
+                    const voided = Boolean(payment.voidedAt);
+                    const canManage =
+                      !isClosed &&
+                      !voided &&
+                      (currentUser.isAdmin ||
+                        isCreator ||
+                        payment.recordedByPartyId === me?.id);
+                    return (
+                      <div
+                        key={payment.id}
+                        className={cn(
+                          "rounded-xl border border-ink-100 p-3",
+                          voided && "border-red-200 bg-red-50/30",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className={cn("text-[14px] font-bold text-ink-900", voided && "line-through decoration-red-300")}>
+                              {formatNaira(payment.amount)}
+                            </p>
+                            <p className="text-[11px] text-ink-500">
+                              {formatDate(payment.paymentDate)} · {payment.paymentMethod}
+                            </p>
+                          </div>
+                          {voided ? (
+                            <Badge tone="danger">Voided</Badge>
+                          ) : (
+                            <Badge tone="warning">{titleCase(payment.verificationStatus)}</Badge>
+                          )}
                         </div>
-                        <Badge tone="warning">{titleCase(payment.verificationStatus)}</Badge>
+                        <p className="mt-1 text-[11px] text-ink-500">
+                          Recorded by {payment.recordedBy.fullName}
+                          {payment.reference ? ` · Ref ${payment.reference}` : ""}
+                        </p>
+                        {payment.notes ? <p className="mt-1 text-[11px] text-ink-600">{payment.notes}</p> : null}
+                        {payment.lastEditedAt ? (
+                          <p className="mt-1 text-[10px] text-ink-400">
+                            Edited {formatDateTime(payment.lastEditedAt)}
+                            {payment.lastEditedByPartyId
+                              ? ` by ${deal.parties.find((item) => item.id === payment.lastEditedByPartyId)?.fullName ?? "Party"}`
+                              : ""}
+                          </p>
+                        ) : null}
+                        {voided ? (
+                          <p className="mt-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-[10px] leading-5 text-red-800">
+                            Voided {formatDateTime(payment.voidedAt)}
+                            {payment.voidedByPartyId
+                              ? ` by ${deal.parties.find((item) => item.id === payment.voidedByPartyId)?.fullName ?? "Party"}`
+                              : ""}
+                            {payment.voidReason ? ` · ${payment.voidReason}` : ""}. Retained in the
+                            audit record.
+                          </p>
+                        ) : null}
+                        {payment.receipt ? (
+                          <a
+                            href={`/deals/${deal.id}/documents/${payment.receipt.id}`}
+                            className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700"
+                          >
+                            <FileText className="h-3 w-3" aria-hidden />
+                            Receipt
+                          </a>
+                        ) : null}
+                        <PaymentRecordActions
+                          dealId={deal.id}
+                          payment={{
+                            id: payment.id,
+                            amount: payment.amount,
+                            paymentDateInput: toDateInputValue(payment.paymentDate),
+                            paymentMethod: payment.paymentMethod,
+                            reference: payment.reference,
+                            notes: payment.notes,
+                            revision: payment.revision,
+                          }}
+                          canManage={canManage}
+                        />
                       </div>
-                      <p className="mt-1 text-[11px] text-ink-500">
-                        Recorded by {payment.recordedBy.fullName}
-                        {payment.reference ? ` · Ref ${payment.reference}` : ""}
-                      </p>
-                      {payment.notes ? <p className="mt-1 text-[11px] text-ink-600">{payment.notes}</p> : null}
-                      {payment.receipt ? (
-                        <a
-                          href={`/deals/${deal.id}/documents/${payment.receipt.id}`}
-                          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700"
-                        >
-                          <FileText className="h-3 w-3" aria-hidden />
-                          Receipt
-                        </a>
-                      ) : null}
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </CardBody>
             </Card>
@@ -779,11 +909,27 @@ export default async function DealWorkspacePage({
                 ) : (
                   deal.obligations.map((obligation) => {
                     const overdue = isObligationOverdue(obligation);
+                    const cancelled = obligation.status === OBLIGATION_STATUS.CANCELLED;
+                    const canEdit =
+                      !isClosed &&
+                      !cancelled &&
+                      (currentUser.isAdmin ||
+                        isCreator ||
+                        obligation.createdByPartyId === me?.id ||
+                        obligation.responsiblePartyId === me?.id);
                     return (
-                      <div key={obligation.id} className="rounded-xl border border-ink-100 p-3">
+                      <div
+                        key={obligation.id}
+                        className={cn(
+                          "rounded-xl border border-ink-100 p-3",
+                          cancelled && "border-red-200 bg-red-50/30",
+                        )}
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-[12px] font-semibold text-ink-900">{obligation.title}</p>
+                            <p className={cn("text-[12px] font-semibold text-ink-900", cancelled && "line-through decoration-red-300")}>
+                              {obligation.title}
+                            </p>
                             <p className="text-[11px] text-ink-500">
                               {obligation.amount ? formatNaira(obligation.amount) : obligation.kind}
                               {obligation.dueAt ? ` · due ${formatDate(obligation.dueAt)}` : ""}
@@ -792,33 +938,61 @@ export default async function DealWorkspacePage({
                                 : ""}
                             </p>
                             {obligation.description ? <p className="mt-1 text-[11px] text-ink-600">{obligation.description}</p> : null}
-                          </div>
-                          <Badge tone={obligation.status === OBLIGATION_STATUS.COMPLETED ? "success" : obligation.status === OBLIGATION_STATUS.DISPUTED ? "danger" : overdue ? "danger" : "warning"}>
-                            {obligation.status}
-                          </Badge>
-                        </div>
-                        {!isClosed && obligation.status !== OBLIGATION_STATUS.COMPLETED ? (
-                          <div className="mt-2 flex gap-2">
-                            <form action={updateObligationAction}>
-                              <input type="hidden" name="dealId" value={deal.id} />
-                              <input type="hidden" name="obligationId" value={obligation.id} />
-                              <input type="hidden" name="status" value={OBLIGATION_STATUS.COMPLETED} />
-                              <button type="submit" className={buttonStyles({ variant: "outline", size: "sm" })}>
-                                Mark done
-                              </button>
-                            </form>
-                            {obligation.status !== OBLIGATION_STATUS.DISPUTED ? (
-                              <form action={updateObligationAction}>
-                                <input type="hidden" name="dealId" value={deal.id} />
-                                <input type="hidden" name="obligationId" value={obligation.id} />
-                                <input type="hidden" name="status" value={OBLIGATION_STATUS.DISPUTED} />
-                                <button type="submit" className={buttonStyles({ variant: "ghost", size: "sm" })}>
-                                  Dispute
-                                </button>
-                              </form>
+                            {obligation.lastEditedAt ? (
+                              <p className="mt-1 text-[10px] text-ink-400">
+                                Edited {formatDateTime(obligation.lastEditedAt)}
+                                {obligation.lastEditedByPartyId
+                                  ? ` by ${deal.parties.find((item) => item.id === obligation.lastEditedByPartyId)?.fullName ?? "Party"}`
+                                  : ""}
+                              </p>
+                            ) : null}
+                            {cancelled ? (
+                              <p className="mt-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-[10px] leading-5 text-red-800">
+                                Cancelled {formatDateTime(obligation.cancelledAt)}
+                                {obligation.cancelledByPartyId
+                                  ? ` by ${deal.parties.find((item) => item.id === obligation.cancelledByPartyId)?.fullName ?? "Party"}`
+                                  : ""}
+                                {obligation.cancelReason ? ` · ${obligation.cancelReason}` : ""}. Retained in
+                                the audit record.
+                              </p>
                             ) : null}
                           </div>
-                        ) : null}
+                          <Badge
+                            tone={
+                              cancelled
+                                ? "neutral"
+                                : obligation.status === OBLIGATION_STATUS.COMPLETED
+                                  ? "success"
+                                  : obligation.status === OBLIGATION_STATUS.DISPUTED
+                                    ? "danger"
+                                    : overdue
+                                      ? "danger"
+                                      : "warning"
+                            }
+                          >
+                            {titleCase(obligation.status)}
+                          </Badge>
+                        </div>
+                        <ObligationRecordActions
+                          dealId={deal.id}
+                          obligation={{
+                            id: obligation.id,
+                            title: obligation.title,
+                            description: obligation.description,
+                            amount: obligation.amount,
+                            dueAtInput: toDateInputValue(obligation.dueAt),
+                            responsiblePartyId: obligation.responsiblePartyId,
+                            status: obligation.status,
+                            revision: obligation.revision,
+                          }}
+                          parties={deal.parties.map((item) => ({
+                            id: item.id,
+                            fullName: item.fullName,
+                            role: item.role,
+                          }))}
+                          canEdit={canEdit}
+                          isClosed={isClosed}
+                        />
                       </div>
                     );
                   })
@@ -859,7 +1033,7 @@ export default async function DealWorkspacePage({
           <div className="space-y-4">
             <Card>
               <CardHeader
-                title="Invite the other party"
+                title={otherPartySigned ? "Share access with the other party" : "Invite the other party"}
                 description={otherParty ? `${otherParty.fullName} · ${otherParty.email ?? otherParty.phoneNumber ?? "No contact"}` : "No other party on this deal."}
               />
               <CardBody className="space-y-3">
@@ -879,7 +1053,9 @@ export default async function DealWorkspacePage({
 
                 {inviteUrl ? (
                   <div className="rounded-xl border border-brand-200 bg-brand-50 p-3">
-                    <p className="text-[11px] font-bold text-brand-900">New invitation link</p>
+                    <p className="text-[11px] font-bold text-brand-900">
+                      {otherPartySigned ? "New access link" : "New invitation link"}
+                    </p>
                     <p className="mt-1 break-all font-mono text-[10px] text-brand-800">{inviteUrl}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <CopyButton value={inviteUrl} />
@@ -894,24 +1070,32 @@ export default async function DealWorkspacePage({
                       </a>
                     </div>
                     <p className="mt-2 text-[10px] leading-4 text-brand-800/70">
-                      This link is only shown in this response. Store it or send it now. The other party
-                      will still need a one-time code sent to their email or phone.
+                      {otherPartySigned
+                        ? "This access link is only shown in this response. It preserves the existing signature and does not reopen signing."
+                        : "This link is only shown in this response. Store it or send it now. The other party will still need a one-time code sent to their email or phone."}
                     </p>
                   </div>
                 ) : (
                   <Alert tone="info">
-                    For security, existing invitation links are never shown again. Create a new
-                    invitation if you need to resend the link.
+                    {otherPartySigned
+                      ? "For security, existing links are never shown again. Create a new access link if the other party needs to return. Their signature and the deal status are unchanged."
+                      : "For security, existing invitation links are never shown again. Create a new invitation if you need to resend the link."}
                   </Alert>
                 )}
 
-                {isCreator && !isClosed && otherParty?.invitationStatus !== "SIGNED" ? (
+                {isCreator && !isClosed && otherParty ? (
                   <div className="flex flex-wrap gap-2">
                     <form action={sendInvitationAction}>
                       <input type="hidden" name="dealId" value={deal.id} />
                       <button type="submit" className={buttonStyles({ size: "sm" })}>
                         <Send className="h-4 w-4" aria-hidden />
-                        {activeInvitation ? "Create new link" : "Create invitation link"}
+                        {otherPartySigned
+                          ? activeInvitation
+                            ? "Create new access link"
+                            : "Create access link"
+                          : activeInvitation
+                            ? "Create new link"
+                            : "Create invitation link"}
                       </button>
                     </form>
                     {activeInvitation ? (
@@ -938,7 +1122,7 @@ export default async function DealWorkspacePage({
               witnesses={witnessViews}
               canManage={isCreator || currentUser.isAdmin}
               viewerPartyId={me?.id ?? null}
-              disabled={isClosed || deal.status === DEAL_STATUS.EXECUTED}
+              disabled={isClosed || Boolean(deal.executedAt) || deal.status === DEAL_STATUS.EXECUTED}
             />
 
             <Card>
@@ -985,13 +1169,7 @@ export default async function DealWorkspacePage({
                     Verification page
                   </Link>
                   {isCreator ? (
-                    <form action={regenerateEvidenceAction}>
-                      <input type="hidden" name="dealId" value={deal.id} />
-                      <button type="submit" className={buttonStyles({ variant: "ghost", size: "sm", className: "w-full" })}>
-                        <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                        Regenerate artifacts
-                      </button>
-                    </form>
+                    <ExecutionArtifactsButton dealId={deal.id} />
                   ) : null}
                 </CardBody>
               </Card>

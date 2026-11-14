@@ -24,7 +24,7 @@ export async function getUserDeals(userId: string, limit?: number) {
 }
 
 export function listPaymentSummary(deal: DealListItem) {
-  const paid = deal.payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const paid = deal.payments.filter((payment) => !payment.voidedAt).reduce((sum, payment) => sum + payment.amount, 0);
   const total = deal.totalAmount && deal.totalAmount > 0 ? deal.totalAmount : null;
   const outstanding = total === null ? null : Math.max(total - paid, 0);
   const now = Date.now();

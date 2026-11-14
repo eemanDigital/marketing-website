@@ -10,7 +10,12 @@ import {
 } from "lucide-react";
 import { buildAgreementContent } from "@/lib/agreement";
 import { DEAL_STATUS, DEAL_STATUS_LABEL, WITNESS_STATUS, WITNESS_STATUS_LABEL } from "@/lib/constants";
-import { findWitness, witnessCanAttest, witnessProblem } from "@/lib/witness";
+import {
+  findWitness,
+  witnessCanAttest,
+  witnessExecutionClosed,
+  witnessProblem,
+} from "@/lib/witness";
 import { formatDate, formatDateTime, formatNaira, maskEmail, maskPhone, shortHash } from "@/lib/utils";
 import { Logo } from "@/components/ui/logo";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +25,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { buttonStyles } from "@/components/ui/button";
 import { TrackWitnessOpen } from "@/components/witness/track-open";
 import { WitnessVerify } from "@/components/witness/witness-verify";
+import { WitnessAccept } from "@/components/witness/witness-accept";
 import { WitnessAttest } from "@/components/witness/witness-attest";
 
 export const metadata = { title: "Witness an agreement" };
@@ -87,6 +93,7 @@ export default async function WitnessPage({ params }: { params: Promise<{ token:
   const document = witness.document;
   const agreement = buildAgreementContent(deal, deal.parties);
   const canAttest = witnessCanAttest(witness);
+  const executionClosed = witnessExecutionClosed(witness);
   const contact = witness.email ? maskEmail(witness.email) : maskPhone(witness.phoneNumber);
   const attested = witness.status === WITNESS_STATUS.ATTESTED;
   const documentUrl = document
@@ -208,9 +215,21 @@ export default async function WitnessPage({ params }: { params: Promise<{ token:
           The deal was executed without this witness attestation. This link is now read-only and
           cannot be used to attest. Contact the inviting party if a new record is needed.
         </Alert>
+      ) : executionClosed ? (
+        <Alert tone="warning" className="mt-4" title="Witnessing is locked">
+          This deal has already been executed or closed. The witness record is read-only.
+        </Alert>
       ) : !witness.verifiedAt ? (
         <div className="mt-4">
           <WitnessVerify token={token} contact={contact} />
+        </div>
+      ) : witness.status !== WITNESS_STATUS.ACCEPTED ? (
+        <div className="mt-4">
+          <WitnessAccept
+            token={token}
+            witnessedName={witness.witnessedParty.fullName}
+            versionNumber={document?.versionNumber ?? deal.currentVersion}
+          />
         </div>
       ) : canAttest ? (
         <div className="mt-4">
@@ -225,10 +244,12 @@ export default async function WitnessPage({ params }: { params: Promise<{ token:
           />
         </div>
       ) : (
-        <Alert tone="warning" className="mt-4" title="Waiting for the signature">
-          Your contact is verified, but {witness.witnessedParty.fullName} has not signed version{" "}
-          {document?.versionNumber ?? deal.currentVersion} yet. You can attest once they have signed
-          the version you are witnessing.
+        <Alert tone="info" className="mt-4" title="Intention to witness recorded">
+          {witness.acceptedAt
+            ? `You accepted this invitation on ${formatDateTime(witness.acceptedAt)}. `
+            : "Your intention to witness is recorded. "}
+          You can submit the separate attestation after {witness.witnessedParty.fullName} signs version{" "}
+          {document?.versionNumber ?? deal.currentVersion}.
         </Alert>
       )}
 

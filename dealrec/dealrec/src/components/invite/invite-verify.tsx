@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { sendInviteOtpAction, verifyInviteOtpAction } from "@/server/actions/invite";
 import type { ActionState } from "@/server/action-state";
@@ -14,6 +15,11 @@ export function InviteVerify({ token, contact }: { token: string; contact: strin
   const [state, action] = useActionState(verifyInviteOtpAction, null);
   const [sendState, setSendState] = useState<ActionState>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state?.success) router.refresh();
+  }, [state?.success, router]);
 
   function send() {
     startTransition(async () => {

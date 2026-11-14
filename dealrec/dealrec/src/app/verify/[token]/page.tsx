@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CheckCircle2, FileText, ShieldAlert, ShieldCheck } from "lucide-react";
 import { db } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { WITNESS_STATUS, WITNESS_STATUS_LABEL } from "@/lib/constants";
+import { EVENT, WITNESS_STATUS, WITNESS_STATUS_LABEL } from "@/lib/constants";
 import { Logo } from "@/components/ui/logo";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -31,6 +31,47 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
       },
     },
   });
+
+  const evidencePacks = seal
+    ? await db.dealEvent.findMany({
+        where: {
+          dealId: seal.dealId,
+          eventType: EVENT.EVIDENCE_PACK_GENERATED,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        select: { id: true, createdAt: true, metadataJson: true },
+      })
+    : [];
+
+  const packFingerprints: {
+    id: string;
+    createdAt: Date;
+    zipSha256: string;
+    fileCount: number | null;
+  }[] = [];
+  for (const event of evidencePacks) {
+    try {
+      const metadata = JSON.parse(event.metadataJson || "{}") as {
+        zipSha256?: unknown;
+        files?: unknown;
+      };
+      if (typeof metadata.zipSha256 !== "string") continue;
+      const fileCount = Array.isArray(metadata.files)
+        ? metadata.files.length
+        : typeof metadata.files === "number"
+          ? metadata.files
+          : null;
+      packFingerprints.push({
+        id: event.id,
+        createdAt: event.createdAt,
+        zipSha256: metadata.zipSha256,
+        fileCount,
+      });
+    } catch {
+      // Ignore older or malformed evidence pack metadata.
+    }
+  }
 
   return (
     <div className="min-h-dvh bg-ink-50">
@@ -165,6 +206,9 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
                             </p>
                             <p className="text-[10px] text-ink-500">
                               Witness for {witnessedParty?.fullName ?? "party"}
+                              {witness.acceptedAt
+                                ? ` · Accepted ${formatDateTime(witness.acceptedAt)}`
+                                : ""}
                               {witness.attestedAt ? ` · ${formatDateTime(witness.attestedAt)}` : ""}
                             </p>
                           </div>
@@ -186,6 +230,34 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
             </Card>
 
             <VerifyFileForm identifier={token} />
+
+            {packFingerprints.length > 0 ? (
+              <Card>
+                <CardHeader
+                  title="Evidence pack fingerprints"
+                  description="Compare the SHA-256 hash of a downloaded evidence ZIP with the fingerprints recorded by dealrec."
+                />
+                <CardBody className="space-y-3">
+                  {packFingerprints.map((pack, index) => (
+                    <div key={pack.id} className="rounded-xl border border-ink-100 p-3">
+                      <p className="text-[11px] font-semibold text-ink-800">
+                        {formatDateTime(pack.createdAt)}
+                        {index === 0 ? " · Latest pack" : ""}
+                        {pack.fileCount === null ? "" : ` · ${pack.fileCount} files`}
+                      </p>
+                      <p className="mt-1 break-all font-mono text-[10px] leading-5 text-ink-600">
+                        {pack.zipSha256}
+                      </p>
+                    </div>
+                  ))}
+                  <p className="text-[11px] leading-5 text-ink-500">
+                    A matching ZIP hash shows the pack is byte-for-byte identical to the pack generated
+                    by dealrec. If any file inside the ZIP was edited or replaced, the ZIP hash will not
+                    match. A mismatch does not by itself prove fraud.
+                  </p>
+                </CardBody>
+              </Card>
+            ) : null}
 
             <Card>
               <CardHeader title="What this result means" />

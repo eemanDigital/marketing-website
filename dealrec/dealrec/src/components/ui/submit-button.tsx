@@ -10,14 +10,17 @@ export function SubmitButton({
   variant = "primary",
   size = "md",
   className,
+  pending: pendingOverride,
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
   variant?: "primary" | "secondary" | "outline" | "ghost" | "danger" | "sand";
   size?: "sm" | "md" | "lg" | "icon";
   className?: string;
+  pending?: boolean;
 }) {
-  const { pending } = useFormStatus();
+  const { pending: formPending } = useFormStatus();
+  const pending = pendingOverride ?? formPending;
   return (
     <Button type="submit" variant={variant} size={size} className={className} disabled={pending}>
       {pending ? (

@@ -31,6 +31,7 @@ type WitnessView = {
   statusLabel: string;
   required: boolean;
   expiresLabel: string;
+  acceptedLabel: string | null;
   attestedLabel: string | null;
   openCount: number;
   canManage: boolean;
@@ -40,7 +41,7 @@ type WitnessView = {
 function toneFor(status: string): "success" | "warning" | "danger" | "neutral" | "info" {
   if (status === "ATTESTED") return "success";
   if (status === "REVOKED" || status === "SUPERSEDED") return "neutral";
-  if (status === "VERIFIED" || status === "OPENED") return "info";
+  if (status === "ACCEPTED" || status === "VERIFIED" || status === "OPENED") return "info";
   return "warning";
 }
 
@@ -58,6 +59,7 @@ function WitnessRow({ dealId, witness }: { dealId: string; witness: WitnessView 
           </p>
           <p className="text-[10px] text-ink-400">
             Expires {witness.expiresLabel}
+            {witness.acceptedLabel ? ` · Accepted ${witness.acceptedLabel}` : ""}
             {witness.attestedLabel ? ` · Attested ${witness.attestedLabel}` : ""}
           </p>
         </div>

@@ -8,27 +8,17 @@ import {
   CONSENT_TEXT_VERSION,
   DEAL_STATUS,
   DOCUMENT_TYPE,
-  MAX_SIGNATURE_BYTES,
 } from "@/lib/constants";
 import {
   executeDealIfReady,
   getDealAccess,
   recordSignature,
 } from "@/lib/deals";
-import { isPng, putFile, safeFileName } from "@/lib/storage";
+import { putFile, safeFileName } from "@/lib/storage";
+import { decodeSignature, parseSignatureType } from "@/lib/signature";
 import { notifyDealParties } from "@/lib/notifications";
 import { requireConsent, requireText } from "@/lib/validation";
 import { type ActionState, errorMessage } from "../action-state";
-
-function decodeSignature(dataUrl: string) {
-  const match = /^data:image\/png;base64,(.+)$/i.exec(dataUrl);
-  if (!match) return null;
-  const buffer = Buffer.from(match[1], "base64");
-  if (buffer.length === 0) return null;
-  if (buffer.length > MAX_SIGNATURE_BYTES) throw new Error("The signature image is too large.");
-  if (!isPng(buffer)) throw new Error("The signature image could not be read.");
-  return buffer;
-}
 
 export async function signAsCreatorAction(
   _prev: ActionState,
@@ -65,11 +55,12 @@ export async function signAsCreatorAction(
       max: 120,
     });
     requireConsent(formData.get("consent"));
-    const signatureType = String(formData.get("signatureType") ?? "drawn");
+    const signatureType = parseSignatureType(String(formData.get("signatureType") ?? "drawn"));
+    if (!signatureType) return { error: "Choose a valid signature method." };
     const signatureData = String(formData.get("signatureData") ?? "");
-    const png = signatureType === "drawn" ? decodeSignature(signatureData) : null;
-    if (signatureType === "drawn" && !png) {
-      return { error: "Please draw your signature or choose typed signature." };
+    const png = signatureType === "typed" ? null : await decodeSignature(signatureData);
+    if (signatureType !== "typed" && !png) {
+      return { error: "Please provide a valid drawn or uploaded signature image." };
     }
 
     let signatureKey: string | null = null;
@@ -92,14 +83,21 @@ export async function signAsCreatorAction(
       signatureAssetKey: signatureKey,
     });
 
-    if (result.allSigned) await executeDealIfReady(dealId);
+    const fullyExecuted = result.allSigned && !result.witnessesPending;
+    if (fullyExecuted) await executeDealIfReady(dealId);
 
     await notifyDealParties(dealId, {
-      type: result.allSigned ? "DEAL_EXECUTED" : "PARTY_SIGNED",
-      title: result.allSigned ? "Deal fully signed" : "Agreement signed",
-      body: result.allSigned
+      type: fullyExecuted ? "DEAL_EXECUTED" : "PARTY_SIGNED",
+      title: fullyExecuted
+        ? "Deal fully signed"
+        : result.witnessesPending
+          ? "Witness attestations needed"
+          : "Agreement signed",
+      body: fullyExecuted
         ? `All parties signed "${deal.title}". The executed record is available.`
-        : `${user.fullName} signed "${deal.title}".`,
+        : result.witnessesPending
+          ? `All parties signed "${deal.title}". Required witnesses must attest before the executed record is available.`
+          : `${user.fullName} signed "${deal.title}".`,
       dealId,
       excludePartyId: party.id,
       email: true,
@@ -107,6 +105,7 @@ export async function signAsCreatorAction(
 
     destination = `/deals/${dealId}?tab=agreement&signed=1`;
   } catch (error) {
+    if (dealId) revalidatePath(`/deals/${dealId}`);
     return { error: errorMessage(error) };
   }
 

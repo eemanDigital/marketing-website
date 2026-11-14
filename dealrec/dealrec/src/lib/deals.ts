@@ -47,7 +47,14 @@ const dealInclude = {
 
 export type FullDeal = Prisma.DealGetPayload<{ include: typeof dealInclude }>;
 
-export const CLOSED = [DEAL_STATUS.COMPLETED, DEAL_STATUS.CANCELLED, DEAL_STATUS.VOIDED, DEAL_STATUS.SUPERSEDED];
+export const CLOSED = [
+  DEAL_STATUS.ACTIVE,
+  DEAL_STATUS.OVERDUE,
+  DEAL_STATUS.COMPLETED,
+  DEAL_STATUS.CANCELLED,
+  DEAL_STATUS.VOIDED,
+  DEAL_STATUS.SUPERSEDED,
+];
 
 export async function getFullDeal(dealId: string) {
   return db.deal.findUnique({ where: { id: dealId }, include: dealInclude });
@@ -184,7 +191,7 @@ export function invitationProblem(invitation: {
 }
 
 export function paymentSummary(deal: FullDeal): PaymentSummary {
-  const paid = deal.payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const paid = deal.payments.filter((payment) => !payment.voidedAt).reduce((sum, payment) => sum + payment.amount, 0);
   const total = deal.totalAmount && deal.totalAmount > 0 ? deal.totalAmount : null;
   const outstanding = total === null ? null : Math.max(total - paid, 0);
   const status =
@@ -248,7 +255,22 @@ export async function createInvitation(input: {
   const tokenHash = sha256(token);
   const expiresAt = new Date(Date.now() + INVITATION_DAYS * 86_400_000);
 
-  await db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
+    const deal = await tx.deal.findUnique({
+      where: { id: input.dealId },
+      select: { currentVersion: true },
+    });
+    if (!deal) throw new Error("Deal not found.");
+    const signedCurrentVersion = await tx.signature.findFirst({
+      where: {
+        dealId: input.dealId,
+        partyId: input.partyId,
+        document: { versionNumber: deal.currentVersion },
+      },
+      select: { id: true },
+    });
+    const accessOnly = Boolean(signedCurrentVersion);
+
     await tx.invitation.updateMany({
       where: { partyId: input.partyId, revokedAt: null },
       data: { revokedAt: new Date(), status: "REVOKED" },
@@ -262,28 +284,37 @@ export async function createInvitation(input: {
         expiresAt,
       },
     });
-    await tx.dealParty.update({
-      where: { id: input.partyId },
-      data: { invitationStatus: INVITATION_STATUS.SENT },
-    });
-    await tx.deal.update({
-      where: { id: input.dealId },
-      data: {
-        status: DEAL_STATUS.AWAITING_COUNTERPARTY,
-        updatedAt: new Date(),
-      },
-    });
+    if (!accessOnly) {
+      await tx.dealParty.update({
+        where: { id: input.partyId },
+        data: { invitationStatus: INVITATION_STATUS.SENT },
+      });
+      await tx.deal.update({
+        where: { id: input.dealId },
+        data: {
+          status: DEAL_STATUS.AWAITING_COUNTERPARTY,
+          updatedAt: new Date(),
+        },
+      });
+    }
     await appendEvent(tx, {
       dealId: input.dealId,
-      eventType: EVENT.PARTY_INVITED,
-      description: "Invitation link created for the other party.",
+      eventType: accessOnly ? EVENT.INVITATION_CREATED : EVENT.PARTY_INVITED,
+      description: accessOnly
+        ? "Replacement access link created for the already-signed party."
+        : "Invitation link created for the other party.",
       actorPartyId: input.actorPartyId,
-      metadata: { invitationId: invitation.id, expiresAt: expiresAt.toISOString() },
+      metadata: {
+        invitationId: invitation.id,
+        expiresAt: expiresAt.toISOString(),
+        accessOnly,
+      },
     });
+    return { accessOnly };
   });
 
   const base = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
-  return { token, url: `${base}/invite/${token}`, expiresAt };
+  return { token, url: `${base}/invite/${token}`, expiresAt, accessOnly: result.accessOnly };
 }
 
 export async function findInvitation(token: string) {
@@ -522,11 +553,7 @@ export async function generateExecutionArtifacts(dealId: string) {
     const witnessedParty = deal.parties.find((party) => party.id === witness.witnessedPartyId);
     let signaturePng: Buffer | null = null;
     if (witness.status === WITNESS_STATUS.ATTESTED && witness.signatureAssetKey) {
-      try {
-        signaturePng = await getFile(witness.signatureAssetKey);
-      } catch {
-        signaturePng = null;
-      }
+      signaturePng = await getFile(witness.signatureAssetKey);
     }
     witnessesByPdf.push({
       role: `Witness for ${witnessedParty?.fullName ?? "party"}`,
@@ -536,6 +563,8 @@ export async function generateExecutionArtifacts(dealId: string) {
       relationship: witness.relationship,
       signerName: witness.signerName,
       signedAt: witness.attestedAt,
+      acceptedAt: witness.acceptedAt,
+      signatureType: witness.signatureType,
       authLabel: witness.authenticationMethod
         ? AUTH_LEVEL_LABEL[witness.authenticationMethod] ?? witness.authenticationMethod
         : undefined,
@@ -558,17 +587,14 @@ export async function generateExecutionArtifacts(dealId: string) {
       const signature = sigs.find((item) => item.partyId === party.id);
       let signaturePng: Buffer | null = null;
       if (signature?.signatureAssetKey) {
-        try {
-          signaturePng = await getFile(signature.signatureAssetKey);
-        } catch {
-          signaturePng = null;
-        }
+        signaturePng = await getFile(signature.signatureAssetKey);
       }
       partiesByPdf.push({
         role: party.role,
         name: party.fullName,
         signerName: signature?.signerName,
         signedAt: signature?.signedAt ?? null,
+        signatureType: signature?.signatureType,
         authLabel: signature ? AUTH_LEVEL_LABEL[signature.authenticationMethod] ?? signature.authenticationMethod : undefined,
         signaturePng,
       });
@@ -623,6 +649,7 @@ export async function generateExecutionArtifacts(dealId: string) {
       name: signature.party.fullName,
       signerName: signature.signerName,
       authLabel: AUTH_LEVEL_LABEL[signature.authenticationMethod] ?? signature.authenticationMethod,
+      signatureType: signature.signatureType,
       signedAt: signature.signedAt,
     })),
     witnesses: witnessesByPdf,
@@ -692,10 +719,10 @@ export async function generateExecutionArtifacts(dealId: string) {
           },
         });
 
-    if (deal.status !== DEAL_STATUS.EXECUTED) {
+    if (deal.status !== DEAL_STATUS.EXECUTED || !deal.executedAt) {
       await tx.deal.update({
         where: { id: deal.id },
-        data: { status: DEAL_STATUS.EXECUTED, executedAt: new Date() },
+        data: { status: DEAL_STATUS.EXECUTED, executedAt },
       });
     }
 
@@ -743,17 +770,34 @@ export async function executeDealIfReady(dealId: string) {
   if (!deal) return null;
   if (!allRequiredSigned(deal)) return null;
   if (!allRequiredWitnessesAttested(deal)) return null;
-  if (deal.status === DEAL_STATUS.VOIDED || deal.status === DEAL_STATUS.CANCELLED) return null;
+  if ([DEAL_STATUS.VOIDED, DEAL_STATUS.CANCELLED, DEAL_STATUS.SUPERSEDED].includes(deal.status as never)) {
+    return null;
+  }
 
   const claim = await db.deal.updateMany({
     where: {
       id: dealId,
-      status: { notIn: [DEAL_STATUS.EXECUTED, DEAL_STATUS.VOIDED, DEAL_STATUS.CANCELLED, DEAL_STATUS.SUPERSEDED] },
+      status: {
+        notIn: [
+          DEAL_STATUS.EXECUTED,
+          DEAL_STATUS.ACTIVE,
+          DEAL_STATUS.OVERDUE,
+          DEAL_STATUS.COMPLETED,
+          DEAL_STATUS.VOIDED,
+          DEAL_STATUS.CANCELLED,
+          DEAL_STATUS.SUPERSEDED,
+        ],
+      },
     },
     data: { status: DEAL_STATUS.EXECUTED, executedAt: new Date() },
   });
 
-  if (claim.count === 0 && deal.seals.length > 0 && executedDocument(deal)) {
+  if (
+    claim.count === 0 &&
+    deal.seals.length > 0 &&
+    executedDocument(deal) &&
+    certificateDocument(deal)
+  ) {
     return null;
   }
 
@@ -761,7 +805,7 @@ export async function executeDealIfReady(dealId: string) {
     return await generateExecutionArtifacts(dealId);
   } catch (error) {
     console.error("[dealrec] execution artifact generation failed", error);
-    return null;
+    throw error;
   }
 }
 
@@ -876,7 +920,13 @@ export async function recordSignature(input: {
 
     await tx.deal.update({
       where: { id: deal.id },
-      data: { status: nextStatus, updatedAt: new Date() },
+      data: {
+        status: nextStatus,
+        updatedAt: new Date(),
+        ...(nextStatus === DEAL_STATUS.EXECUTED && !deal.executedAt
+          ? { executedAt: new Date() }
+          : {}),
+      },
     });
 
     await appendEvent(tx, {

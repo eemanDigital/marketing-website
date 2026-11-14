@@ -52,6 +52,23 @@ export function witnessChannel(witness: WitnessRecord) {
   return null;
 }
 
+export function witnessExecutionClosed(witness: {
+  deal: { status: string; executedAt: Date | null };
+}) {
+  return (
+    Boolean(witness.deal.executedAt) ||
+    [
+      DEAL_STATUS.EXECUTED,
+      DEAL_STATUS.ACTIVE,
+      DEAL_STATUS.OVERDUE,
+      DEAL_STATUS.COMPLETED,
+      DEAL_STATUS.CANCELLED,
+      DEAL_STATUS.VOIDED,
+      DEAL_STATUS.SUPERSEDED,
+    ].includes(witness.deal.status as never)
+  );
+}
+
 export function witnessedPartySigned(witness: WitnessRecord) {
   if (!witness.document) return false;
   return witness.deal.signatures.some(
@@ -65,7 +82,8 @@ export function witnessCanAttest(witness: WitnessRecord) {
   return (
     !witnessProblem(witness) &&
     witness.status !== WITNESS_STATUS.ATTESTED &&
+    witness.status === WITNESS_STATUS.ACCEPTED &&
     witnessedPartySigned(witness) &&
-    witness.deal.status !== DEAL_STATUS.EXECUTED
+    !witnessExecutionClosed(witness)
   );
 }

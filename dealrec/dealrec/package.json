@@ -2,9 +2,14 @@
   "name": "dealrec",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
+    "vercel-build": "prisma generate && next build",
+    "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
     "db:migrate:dev": "cross-env APP_ENV=development prisma migrate dev",
@@ -14,7 +19,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.11.3",
     "@aws-sdk/client-s3": "^3.1166.0",
     "@aws-sdk/s3-request-presigner": "^3.1166.0",
     "@hookform/resolvers": "^7.0.5",
@@ -25,7 +29,6 @@
     "date-fns": "^4.4.0",
     "lucide-react": "^1.72.0",
     "next": "16.4.6",
-    "next-auth": "^4.24.15",
     "pdf-lib": "^1.17.1",
     "pg": "^8.23.1",
     "qrcode": "^1.5.4",

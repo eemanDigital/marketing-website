@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 
-export function VerifyAccountForm() {
+export function VerifyAccountForm({ next }: { next?: string | null }) {
   const [state, action] = useActionState(verifySignupCodeAction, null);
   const [resendState, setResendState] = useState<ActionState>(null);
   const [pending, startTransition] = useTransition();
@@ -23,6 +23,7 @@ export function VerifyAccountForm() {
     <div className="space-y-4">
       <ActionMessage state={resendState} />
       <form action={action} className="space-y-4">
+        {next ? <input type="hidden" name="next" value={next} /> : null}
         <ActionMessage state={state} />
         <Field label="Verification code" htmlFor="code" required hint="Enter the 6-digit code sent to your email.">
           <Input

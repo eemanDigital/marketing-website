@@ -12,8 +12,8 @@ export function ActionMessage({ state }: { state: ActionState }) {
         {state.success ? <Alert tone="success">{state.success}</Alert> : null}
         {state.devCode ? (
           <Alert tone="info" title={`Development code: ${state.devCode}`}>
-            Email/SMS delivery is simulated because no provider key is configured. In production this
-            code is sent privately and never shown in the app.
+            This code is shown because the app is running in development. In production it is sent
+            privately and never shown in the app.
           </Alert>
         ) : null}
       </div>

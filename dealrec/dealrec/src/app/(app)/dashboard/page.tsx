@@ -34,7 +34,7 @@ export default async function DashboardPage() {
       [DEAL_STATUS.EXECUTED, DEAL_STATUS.ACTIVE, DEAL_STATUS.OVERDUE].includes(deal.status as never),
     )
     .reduce((sum, deal) => {
-      const paid = deal.payments.reduce((acc, payment) => acc + payment.amount, 0);
+      const paid = deal.payments.filter((payment) => !payment.voidedAt).reduce((acc, payment) => acc + payment.amount, 0);
       return sum + Math.max((deal.totalAmount ?? 0) - paid, 0);
     }, 0);
   const overdue = deals.reduce(

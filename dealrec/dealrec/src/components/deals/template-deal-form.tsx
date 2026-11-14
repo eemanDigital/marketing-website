@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, type FormEvent } from "react";
 import { ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
 import { createTemplateDealAction } from "@/server/actions/deals";
@@ -13,11 +13,17 @@ import { Alert } from "@/components/ui/alert";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 
 export function TemplateDealForm({ template }: { template: TemplateDefinition }) {
-  const [state, action] = useActionState(createTemplateDealAction, null);
+  const [state, action, pending] = useActionState(createTemplateDealAction, null);
   const fieldErrors = state?.fieldErrors ?? {};
 
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => action(formData));
+  }
+
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} onSubmit={submit} className="space-y-4">
       <input type="hidden" name="templateSlug" value={template.slug} />
 
       <Link href="/deals/new" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-500 hover:text-ink-800">
@@ -28,7 +34,7 @@ export function TemplateDealForm({ template }: { template: TemplateDefinition })
       <ActionMessage state={state?.fieldErrors ? null : state} />
       {Object.keys(fieldErrors).length > 0 ? (
         <Alert tone="error" title="Please check the highlighted fields">
-          Your answers were not saved. Fix the fields marked below and submit again.
+          Your answers are still here. Correct the fields marked below and submit again.
         </Alert>
       ) : null}
 
@@ -104,7 +110,7 @@ export function TemplateDealForm({ template }: { template: TemplateDefinition })
         >
           Cancel
         </Link>
-        <SubmitButton pendingLabel="Creating deal...">Create and continue</SubmitButton>
+        <SubmitButton pending={pending} pendingLabel="Creating deal...">Create and continue</SubmitButton>
       </div>
     </form>
   );

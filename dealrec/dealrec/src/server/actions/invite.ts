@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getRequestMeta } from "@/lib/auth";
+import { createSession, getRequestMeta, hashPassword, requireUser } from "@/lib/auth";
+import { claimInvitationParty, partyContactMatchesUser } from "@/lib/party-access";
 import {
   AUTH_LEVEL,
   CONSENT_TEXT_VERSION,
@@ -11,7 +12,6 @@ import {
   DOCUMENT_TYPE,
   EVENT,
   INVITATION_STATUS,
-  MAX_SIGNATURE_BYTES,
   OTP_PURPOSE,
 } from "@/lib/constants";
 import { createOtp, verifyOtp } from "@/lib/otp";
@@ -20,9 +20,10 @@ import { appendEvent } from "@/lib/events";
 import { sendEmail, sendSms, otpEmailHtml } from "@/lib/mail";
 import { notifyDealParties } from "@/lib/notifications";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { isPng, putFile, safeFileName } from "@/lib/storage";
+import { putFile, safeFileName } from "@/lib/storage";
+import { decodeSignature, parseSignatureType } from "@/lib/signature";
 import { normalizeString } from "@/lib/utils";
-import { requireConsent, requireText } from "@/lib/validation";
+import { requireConsent, requireText, signUpSchema } from "@/lib/validation";
 import { type ActionState, errorMessage } from "../action-state";
 
 function devCode(code: string) {
@@ -189,6 +190,139 @@ export async function verifyInviteOtpAction(
   }
 }
 
+export async function createInvitationAccountAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const token = String(formData.get("token") ?? "");
+  let destination = "";
+  let dealId = "";
+  try {
+    const invitation = await findInvitation(token);
+    if (!invitation) return { error: "Invitation not found." };
+    const problem = invitationProblem(invitation);
+    if (problem) return { error: problem };
+    dealId = invitation.dealId;
+    if (invitation.party.userId) {
+      return { error: "This invitation is already linked to an account. Sign in instead." };
+    }
+    if (!invitation.verifiedAt || invitation.verifyMethod !== "EMAIL_OTP" || !invitation.party.email) {
+      return { error: "Verify the invited email address before creating an account." };
+    }
+
+    const email = invitation.party.email.trim().toLowerCase();
+    const parsed = signUpSchema.safeParse({
+      fullName: formData.get("fullName"),
+      email,
+      password: formData.get("password"),
+    });
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Check your details." };
+    }
+
+    const meta = await getRequestMeta();
+    if (meta.ipAddress) {
+      enforceRateLimit(`invite-account-ip:${meta.ipAddress}`, 5, 15 * 60 * 1000);
+    }
+    enforceRateLimit(`invite-account:${invitation.partyId}`, 5, 15 * 60 * 1000);
+
+    const passwordHash = await hashPassword(parsed.data.password);
+    const verifiedAt = invitation.verifiedAt;
+    const user = await db.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({ where: { email }, select: { id: true } });
+      if (existing) throw new Error("An account already exists for this email. Sign in instead.");
+
+      const created = await tx.user.create({
+        data: {
+          fullName: parsed.data.fullName,
+          email,
+          passwordHash,
+          emailVerifiedAt: verifiedAt,
+        },
+      });
+      const linked = await tx.dealParty.updateMany({
+        where: { id: invitation.partyId, userId: null },
+        data: {
+          userId: created.id,
+          joinedAt: invitation.party.joinedAt ?? new Date(),
+        },
+      });
+      if (linked.count === 0) {
+        throw new Error("This invitation was linked to another account. Sign in instead.");
+      }
+      await tx.notification.updateMany({
+        where: { partyId: invitation.partyId, userId: null },
+        data: { userId: created.id },
+      });
+      await appendEvent(tx, {
+        dealId: invitation.dealId,
+        eventType: EVENT.PARTY_ACCOUNT_LINKED,
+        description: "The invited party created an account and linked this agreement.",
+        actorPartyId: invitation.partyId,
+        metadata: { method: "invitation_signup", invitationId: invitation.id },
+      });
+      return created;
+    });
+
+    await createSession(user.id);
+    destination = `/invite/${token}?account=created`;
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/deals");
+  revalidatePath("/notifications");
+  revalidatePath(`/deals/${dealId}`);
+  revalidatePath(`/invite/${token}`);
+  redirect(destination);
+}
+
+export async function claimInvitationAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const token = String(formData.get("token") ?? "");
+  const user = await requireUser();
+  let dealId = "";
+
+  try {
+    const invitation = await findInvitation(token);
+    if (!invitation) return { error: "Invitation not found." };
+
+    if (invitation.party.userId !== user.id) {
+      if (invitation.party.userId) {
+        return { error: "This invitation is already linked to another account." };
+      }
+      if (!partyContactMatchesUser(invitation.party, user)) {
+        return {
+          error:
+            "Sign in with the email or phone number this invitation was sent to, or verify that contact in your profile first.",
+        };
+      }
+      const linked = await claimInvitationParty({
+        party: invitation.party,
+        user,
+        invitationId: invitation.id,
+      });
+      if (!linked) {
+        return { error: "This invitation could not be linked. It may already belong to another account." };
+      }
+    }
+
+    dealId = invitation.dealId;
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/deals");
+  revalidatePath("/notifications");
+  revalidatePath(`/deals/${dealId}`);
+  revalidatePath(`/invite/${token}`);
+  redirect(`/deals/${dealId}`);
+}
+
 export async function respondInvitationAction(
   _prev: ActionState,
   formData: FormData,
@@ -222,6 +356,13 @@ export async function respondInvitationAction(
           actorPartyId: invitation.partyId,
           metadata: { invitationId: invitation.id },
         });
+      });
+      await notifyDealParties(invitation.dealId, {
+        type: "INVITATION_ACCEPTED",
+        title: "Invitation accepted",
+        body: `${invitation.party.fullName} accepted "${invitation.deal.title}" and can now review and sign.`,
+        dealId: invitation.dealId,
+        excludePartyId: invitation.partyId,
       });
       revalidatePath(`/invite/${token}`);
       return { ok: true, success: "Invitation accepted. Please sign the agreement." };
@@ -322,18 +463,6 @@ export async function respondInvitationAction(
   }
 }
 
-function decodeSignature(dataUrl: string) {
-  const match = /^data:image\/png;base64,(.+)$/i.exec(dataUrl);
-  if (!match) return null;
-  const buffer = Buffer.from(match[1], "base64");
-  if (buffer.length === 0) return null;
-  if (buffer.length > MAX_SIGNATURE_BYTES) {
-    throw new Error("The signature image is too large.");
-  }
-  if (!isPng(buffer)) throw new Error("The signature image could not be read.");
-  return buffer;
-}
-
 export async function signInvitationAction(
   _prev: ActionState,
   formData: FormData,
@@ -362,13 +491,14 @@ export async function signInvitationAction(
       max: 120,
     });
     requireConsent(formData.get("consent"));
-    const signatureType = String(formData.get("signatureType") ?? "drawn");
+    const signatureType = parseSignatureType(String(formData.get("signatureType") ?? "drawn"));
+    if (!signatureType) return { error: "Choose a valid signature method." };
     const signatureData = String(formData.get("signatureData") ?? "");
 
     let signatureKey: string | null = null;
-    const png = signatureType === "drawn" ? decodeSignature(signatureData) : null;
-    if (signatureType === "drawn" && !png) {
-      return { error: "Please draw your signature or choose typed signature." };
+    const png = signatureType === "typed" ? null : await decodeSignature(signatureData);
+    if (signatureType !== "typed" && !png) {
+      return { error: "Please provide a valid drawn or uploaded signature image." };
     }
     if (png) {
       signatureKey = `deals/${deal.id}/signatures/${invitation.partyId}-${Date.now()}-${safeFileName(signerName)}.png`;
@@ -409,6 +539,7 @@ export async function signInvitationAction(
 
     destination = `/invite/${token}?signed=1`;
   } catch (error) {
+    if (token) revalidatePath(`/invite/${token}`);
     return { error: errorMessage(error) };
   }
 

@@ -6,6 +6,8 @@ export type ActionState =
       fieldErrors?: Record<string, string>;
       devCode?: string;
       code?: string;
+      email?: string;
+      next?: string | null;
       url?: string;
     }
   | null;

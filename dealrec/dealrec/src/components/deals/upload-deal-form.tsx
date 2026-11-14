@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowLeft, FileUp } from "lucide-react";
 import { createUploadedDealAction } from "@/server/actions/deals";
@@ -11,10 +11,16 @@ import { Alert } from "@/components/ui/alert";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 
 export function UploadDealForm() {
-  const [state, action] = useActionState(createUploadedDealAction, null);
+  const [state, action, pending] = useActionState(createUploadedDealAction, null);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => action(formData));
+  }
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} onSubmit={submit} className="space-y-4">
       <Link href="/deals/new" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-500 hover:text-ink-800">
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
         Back to templates
@@ -51,7 +57,7 @@ export function UploadDealForm() {
       </Card>
 
       <Card>
-        <CardHeader title="Upload the agreement" description="PDF only, up to 10 MB. Other formats are rejected." />
+        <CardHeader title="Upload the agreement" description="PDF only, up to 4 MB. Other formats are rejected." />
         <CardBody>
           <label
             htmlFor="file"
@@ -79,7 +85,7 @@ export function UploadDealForm() {
         >
           Cancel
         </Link>
-        <SubmitButton pendingLabel="Uploading...">Create and continue</SubmitButton>
+        <SubmitButton pending={pending} pendingLabel="Uploading...">Create and continue</SubmitButton>
       </div>
     </form>
   );

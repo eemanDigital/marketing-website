@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { findInvitation, invitationProblem } from "@/lib/deals";
 import { buildAgreementContent } from "@/lib/agreement";
+import { getSessionUser } from "@/lib/auth";
+import { partyContactMatchesUser } from "@/lib/party-access";
 import { db } from "@/lib/db";
 import {
   DEAL_STATUS,
@@ -26,9 +28,11 @@ import { Alert } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonStyles } from "@/components/ui/button";
 import { TrackOpen } from "@/components/invite/track-open";
+import { InviteAccount } from "@/components/invite/invite-account";
 import { InviteVerify } from "@/components/invite/invite-verify";
 import { InviteRespond } from "@/components/invite/invite-respond";
 import { InviteSign } from "@/components/invite/invite-sign";
+import { InviteWitnessPanel } from "@/components/invite/invite-witness-panel";
 
 export const metadata = { title: "Review your agreement" };
 
@@ -98,10 +102,33 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           witness.status !== WITNESS_STATUS.SUPERSEDED,
       )
     : [];
+  const ownWitnesses = currentWitnesses
+    .filter((witness) => witness.witnessedPartyId === invitation.partyId)
+    .map((witness) => ({
+      id: witness.id,
+      fullName: witness.fullName,
+      status: witness.status,
+      required: witness.required,
+      acceptedLabel: witness.acceptedAt ? formatDateTime(witness.acceptedAt) : null,
+      attestedLabel: witness.attestedAt ? formatDateTime(witness.attestedAt) : null,
+    }));
   const pendingWitnesses = currentWitnesses.filter(
     (witness) => witness.required && witness.status !== WITNESS_STATUS.ATTESTED,
   );
-  const fullyExecuted = allSigned && pendingWitnesses.length === 0;
+  const executed =
+    deal.documents.find((document) => document.documentType === DOCUMENT_TYPE.EXECUTION_COPY) ?? null;
+  const fullyExecuted = Boolean(executed) && allSigned && pendingWitnesses.length === 0;
+  const witnessChangesDisabled =
+    Boolean(deal.executedAt) ||
+    [
+      DEAL_STATUS.EXECUTED,
+      DEAL_STATUS.ACTIVE,
+      DEAL_STATUS.OVERDUE,
+      DEAL_STATUS.COMPLETED,
+      DEAL_STATUS.CANCELLED,
+      DEAL_STATUS.VOIDED,
+      DEAL_STATUS.SUPERSEDED,
+    ].includes(deal.status as never);
   const agreement = buildAgreementContent(deal, deal.parties);
   const contact = invitation.party.email
     ? maskEmail(invitation.party.email)
@@ -131,6 +158,24 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     ? await db.dealSeal.findFirst({ where: { dealId: deal.id }, orderBy: { issuedAt: "desc" } })
     : null;
   const certificate = deal.documents.find((item) => item.documentType === DOCUMENT_TYPE.CERTIFICATE) ?? null;
+  const viewer = await getSessionUser();
+  const accountMode: "signedOut" | "linked" | "linkedOther" | "claimable" | "mismatch" = !viewer
+    ? "signedOut"
+    : invitation.party.userId === viewer.id
+      ? "linked"
+      : invitation.party.userId
+        ? "linkedOther"
+        : partyContactMatchesUser(invitation.party, viewer)
+          ? "claimable"
+          : "mismatch";
+  const accountEmail = invitation.party.email?.trim().toLowerCase() ?? null;
+  const emailAccountReady = Boolean(
+    invitation.verifiedAt && invitation.verifyMethod === "EMAIL_OTP" && accountEmail,
+  );
+  const emailAccountExists =
+    emailAccountReady && !viewer && !invitation.party.userId && accountEmail
+      ? Boolean(await db.user.findUnique({ where: { email: accountEmail }, select: { id: true } }))
+      : false;
 
   return (
     <Shell>
@@ -179,6 +224,20 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
         </CardBody>
       </Card>
 
+      <div className="mt-4">
+        <InviteAccount
+          token={token}
+          dealId={deal.id}
+          contact={contact}
+          email={invitation.party.email}
+          defaultName={invitation.party.fullName}
+          verified={Boolean(invitation.verifiedAt)}
+          emailAccountReady={emailAccountReady}
+          emailAccountExists={emailAccountExists}
+          mode={accountMode}
+        />
+      </div>
+
       {currentDoc ? (
         <Card className="mt-4">
           <CardBody className="flex flex-wrap items-center justify-between gap-3">
@@ -187,9 +246,12 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
                 <FileText className="h-5 w-5" aria-hidden />
               </span>
               <div>
-                <p className="text-[13px] font-bold text-ink-900">Agreement version {currentDoc.versionNumber}</p>
+                <p className="text-[13px] font-bold text-ink-900">Source agreement · version {currentDoc.versionNumber}</p>
                 <p className="font-mono text-[10px] text-ink-500">SHA-256 {shortHash(currentDoc.sha256, 24)}</p>
                 <p className="text-[10px] text-ink-400">{formatDateTime(currentDoc.createdAt)}</p>
+                <p className="mt-1 text-[10px] leading-4 text-ink-500">
+                  This is the original agreement file. Signatures are in the executed copy after the deal is completed.
+                </p>
               </div>
             </div>
             <Link
@@ -197,7 +259,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
               className={buttonStyles({ variant: "outline", size: "sm" })}
             >
               <Download className="h-3.5 w-3.5" aria-hidden />
-              Open PDF
+              Open source PDF
             </Link>
           </CardBody>
         </Card>
@@ -223,11 +285,22 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
                   {fullyExecuted
                     ? " All required parties have signed and required witnesses have attested, so the executed record is available."
                     : allSigned
-                      ? ` All required parties have signed. ${pendingWitnesses.length} required witness${pendingWitnesses.length === 1 ? "" : "es"} still need to attest before execution.`
+                      ? pendingWitnesses.length > 0
+                        ? ` All required parties have signed. ${pendingWitnesses.length} required witness${pendingWitnesses.length === 1 ? "" : "es"} still need to attest before execution.`
+                        : " All required signatures and witness attestations are recorded. The executed copy is being prepared; refresh this page shortly."
                       : " The other required party still needs to sign."}
                 </p>
                 {fullyExecuted ? (
                   <div className="mt-3 flex flex-wrap gap-2">
+                    {executed ? (
+                      <Link
+                        href={`/deals/${deal.id}/documents/${executed.id}?token=${encodeURIComponent(token)}`}
+                        className={buttonStyles({ size: "sm" })}
+                      >
+                        <Download className="h-4 w-4" aria-hidden />
+                        Executed agreement · signatures
+                      </Link>
+                    ) : null}
                     <a href={evidenceUrl} className={buttonStyles({ size: "sm" })}>
                       <Download className="h-4 w-4" aria-hidden />
                       Evidence pack
@@ -333,6 +406,16 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           </Card>
         </div>
       )}
+
+      {invitation.verifiedAt && currentDoc ? (
+        <div className="mt-4">
+          <InviteWitnessPanel
+            token={token}
+            witnesses={ownWitnesses}
+            disabled={witnessChangesDisabled}
+          />
+        </div>
+      ) : null}
     </Shell>
   );
 }

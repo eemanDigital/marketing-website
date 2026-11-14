@@ -6,17 +6,27 @@ import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 
-export function SignUpForm() {
+export function SignUpForm({ next, email }: { next?: string | null; email?: string }) {
   const [state, action] = useActionState(signUpAction, null);
 
   return (
     <form action={action} className="space-y-4">
       <ActionMessage state={state} />
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Full name" htmlFor="fullName" required>
         <Input id="fullName" name="fullName" autoComplete="name" placeholder="e.g. Adaeze Okafor" required minLength={2} maxLength={120} />
       </Field>
       <Field label="Email address" htmlFor="email" required hint="We send a verification code to this email.">
-        <Input id="email" name="email" type="email" autoComplete="email" inputMode="email" placeholder="you@example.com" required />
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="you@example.com"
+          defaultValue={email}
+          required
+        />
       </Field>
       <Field label="Password" htmlFor="password" required hint="At least 8 characters. Use a mix of letters and numbers.">
         <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />

@@ -1,5 +1,12 @@
 import { mkdir, readFile, writeFile, unlink, stat } from "node:fs/promises";
 import path from "node:path";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { MAX_UPLOAD_BYTES } from "./constants";
 
 function storageRoot() {
@@ -9,7 +16,7 @@ function storageRoot() {
     : path.join(/* turbopackIgnore: true */ process.cwd(), configured);
 }
 
-function resolveKey(key: string) {
+function normalizeKey(key: string) {
   const normalized = key.replace(/\\/g, "/").replace(/^\/+/, "");
   if (
     !normalized ||
@@ -19,6 +26,11 @@ function resolveKey(key: string) {
   ) {
     throw new Error("Invalid storage key.");
   }
+  return normalized;
+}
+
+function resolveKey(key: string) {
+  const normalized = normalizeKey(key);
   const full = path.join(storageRoot(), normalized);
   const root = storageRoot();
   if (!full.startsWith(root + path.sep) && full !== root) {
@@ -27,20 +39,91 @@ function resolveKey(key: string) {
   return full;
 }
 
+function s3Bucket() {
+  return process.env.S3_BUCKET?.trim() || null;
+}
+
+let s3Client: S3Client | null = null;
+
+function getS3Client() {
+  if (s3Client) return s3Client;
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_ACCESS_KEY;
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error(
+      "S3_BUCKET is set but S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are missing.",
+    );
+  }
+  s3Client = new S3Client({
+    region: process.env.S3_REGION ?? process.env.AWS_REGION ?? "auto",
+    endpoint: process.env.S3_ENDPOINT || undefined,
+    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+      sessionToken: process.env.S3_SESSION_TOKEN ?? process.env.AWS_SESSION_TOKEN,
+    },
+  });
+  return s3Client;
+}
+
+function contentTypeFor(key: string) {
+  const extension = path.extname(key).toLowerCase();
+  if (extension === ".pdf") return "application/pdf";
+  if (extension === ".png") return "image/png";
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
+  if (extension === ".webp") return "image/webp";
+  return "application/octet-stream";
+}
+
 export async function putFile(key: string, data: Buffer | Uint8Array) {
-  const full = resolveKey(key);
+  const normalized = normalizeKey(key);
+  const bucket = s3Bucket();
+  if (bucket) {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: normalized,
+        Body: data,
+        ContentType: contentTypeFor(normalized),
+      }),
+    );
+    return normalized;
+  }
+  const full = resolveKey(normalized);
   await mkdir(path.dirname(full), { recursive: true });
   await writeFile(full, data);
-  return key;
+  return normalized;
 }
 
 export async function getFile(key: string) {
-  return readFile(resolveKey(key));
+  const normalized = normalizeKey(key);
+  const bucket = s3Bucket();
+  if (bucket) {
+    const response = await getS3Client().send(
+      new GetObjectCommand({ Bucket: bucket, Key: normalized }),
+    );
+    if (!response.Body) throw new Error("Stored file has no body.");
+    return Buffer.from(await response.Body.transformToByteArray());
+  }
+  return readFile(resolveKey(normalized));
 }
 
 export async function fileExists(key: string) {
+  const normalized = normalizeKey(key);
+  const bucket = s3Bucket();
+  if (bucket) {
+    try {
+      await getS3Client().send(new HeadObjectCommand({ Bucket: bucket, Key: normalized }));
+      return true;
+    } catch (error) {
+      const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+      if ((error as { name?: string }).name === "NotFound" || status === 404) return false;
+      throw error;
+    }
+  }
   try {
-    await stat(resolveKey(key));
+    await stat(resolveKey(normalized));
     return true;
   } catch {
     return false;
@@ -48,8 +131,18 @@ export async function fileExists(key: string) {
 }
 
 export async function deleteFile(key: string) {
+  const normalized = normalizeKey(key);
+  const bucket = s3Bucket();
+  if (bucket) {
+    try {
+      await getS3Client().send(new DeleteObjectCommand({ Bucket: bucket, Key: normalized }));
+    } catch {
+      // Missing files are already gone.
+    }
+    return;
+  }
   try {
-    await unlink(resolveKey(key));
+    await unlink(resolveKey(normalized));
   } catch {
     // Missing files are already gone.
   }
@@ -76,11 +169,15 @@ export function isPdf(bytes: Buffer) {
 
 export function isPng(bytes: Buffer) {
   return (
-    bytes.length > 8 &&
+    bytes.length >= 8 &&
     bytes[0] === 0x89 &&
     bytes[1] === 0x50 &&
     bytes[2] === 0x4e &&
-    bytes[3] === 0x47
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
   );
 }
 
@@ -91,7 +188,7 @@ export function isJpeg(bytes: Buffer) {
 export async function validateUpload(file: File): Promise<ValidatedUpload> {
   if (!file || file.size === 0) throw new Error("Please choose a file to upload.");
   if (file.size > MAX_UPLOAD_BYTES) {
-    throw new Error("The file is too large. Maximum size is 10MB.");
+    throw new Error("The file is too large. Maximum size is 4MB.");
   }
   const mimeType = file.type || "application/octet-stream";
   if (!ALLOWED_MIME.has(mimeType)) {

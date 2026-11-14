@@ -12,7 +12,7 @@
 - New versions with change summaries; signatures are tied to the exact document hash.
 - Invitation links with OTP verification, accept / request changes / decline, and signing.
 - Optional or required witnesses per party, with contact OTP verification, attestation, revocation, and execution gating.
-- Drawn or typed signatures with consent text, IP/user-agent metadata, and contact verification level.
+- Drawn, typed, or uploaded signatures with consent text, IP/user-agent metadata, and contact verification level.
 - Immutable-style event timeline with a SHA-256 hash chain.
 - Executed PDF, execution page, verification certificate with QR code, and a seal serial; witness attestations are included in the executed record.
 - Public verification by seal link or deal reference; optional file-hash comparison.
@@ -26,7 +26,7 @@
 - Tailwind CSS v4
 - Prisma 7 + Neon PostgreSQL (`@prisma/adapter-pg`)
 - `pdf-lib` for PDFs, `qrcode` for verification QR codes, `signature_pad` for drawn signatures
-- Local private file storage in `.storage/` (replaceable behind `src/lib/storage.ts`)
+- Private file storage: local `.storage/` in development, S3-compatible object storage in production
 
 ## Local setup
 
@@ -53,10 +53,13 @@ Open <http://localhost:3000>.
 | `DIRECT_URL` | yes for migrations | Neon direct/unpooled PostgreSQL URL used by Prisma CLI |
 | `APP_URL` | yes in production | Public origin used in invite, verify, and QR links |
 | `SESSION_SECRET` | yes | Signs session cookies; use a long random value |
-| `STORAGE_DIR` | no | Private upload directory, default `.storage` |
+| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | production | S3-compatible private object storage; leave `S3_BUCKET` empty for local `.storage/` |
+| `S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`, `S3_SESSION_TOKEN` | no | Custom S3 endpoint (R2/MinIO/B2), path-style addressing, and temporary credentials |
+| `STORAGE_DIR` | no | Local upload directory, default `.storage`; not persistent on Vercel |
 | `RESEND_API_KEY`, `EMAIL_FROM` | no | Real email delivery; otherwise dev logs email |
 | `SMS_API_KEY`, `SMS_SENDER_ID` | no | Real Termii SMS delivery; otherwise dev logs SMS |
 | `CRON_SECRET` | no | Required to call the reminder cron endpoint |
+| `TRUST_PROXY_HEADERS` | no | Set to `true` only when a trusted proxy strips client-supplied forwarding headers |
 
 Database settings live in mode-specific files:
 
@@ -125,15 +128,48 @@ prisma/seed.mjs          templates, demo users and demo deals
 scripts/load-env.mjs     mode-aware env loader for Prisma CLI and seed
 ```
 
+## Deploying to Vercel
+
+This repository contains the Next.js app in `dealrec/dealrec`. When importing the repo into Vercel, set **Root Directory** to `dealrec/dealrec`. The checked-in `vercel.json` then supplies the build command and daily reminder cron.
+
+Add these variables in the Vercel project settings for Production and Preview as appropriate:
+
+```env
+DATABASE_URL=postgresql://...-pooler.../dealrec?sslmode=require
+DIRECT_URL=postgresql://.../dealrec?sslmode=require
+APP_URL=https://your-production-domain
+SESSION_SECRET=long-random-value
+S3_BUCKET=dealrec-production
+S3_REGION=auto
+S3_ENDPOINT=https://your-s3-compatible-endpoint
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+RESEND_API_KEY=...
+EMAIL_FROM=dealrec <records@your-verified-domain>
+CRON_SECRET=long-random-value
+```
+
+Do **not** set `STORAGE_DIR` on Vercel; the filesystem is ephemeral and should not hold documents. Use AWS S3, Cloudflare R2, Backblaze B2, or another S3-compatible bucket. Set `S3_ENDPOINT` for R2/B2/MinIO, and set `S3_FORCE_PATH_STYLE=true` only if your provider requires path-style requests.
+
+Vercel runs `npm ci` (which generates Prisma Client), then `npm run vercel-build` (`prisma generate && next build`). It does not run database migrations automatically. Before the first deployment, and after any new migration, run against the production database:
+
+```bash
+npm run db:migrate:deploy
+```
+
+Vercel Functions accept bodies up to roughly 4.5MB, so deal document, receipt, and attachment uploads are limited to 4MB. `vercel.json` schedules `GET /api/cron/reminders` daily and Vercel sends `Authorization: Bearer $CRON_SECRET`.
+
+If you use Vercel's Git integration, make sure the commit includes `prisma/migrations/`, `vercel.json`, `prisma.config.ts`, `scripts/load-env.mjs`, and the generated source changes. No build artifacts or env files need to be committed.
+
 ## Production notes
 
 - Set a strong `SESSION_SECRET`, a real `APP_URL`, and configure email/SMS.
 - Use separate Neon branches for development and production. Keep `DATABASE_URL` pooled and `DIRECT_URL` unpooled.
 - Run `npm run db:migrate:deploy` during release before starting the new build. Do not run the demo seed in production.
-- Use a persistent volume for `.storage/` and back it up; database rows reference stored file keys. For horizontal scaling, move storage to S3-compatible object storage while keeping the `src/lib/storage.ts` interface.
+- On Vercel, use S3-compatible object storage. On a server with a persistent disk, `.storage/` can be used instead; back it up because database rows reference stored file keys.
 - Put the app behind HTTPS. Session cookies become `secure` automatically when `NODE_ENV=production`.
 - Restrict admin access to trusted accounts; admin actions are audit-logged.
-- Schedule `GET /api/cron/reminders` with `Authorization: Bearer $CRON_SECRET` (for example every day). It creates due-soon/overdue obligation notifications.
+- The checked-in Vercel cron calls `GET /api/cron/reminders` daily. Elsewhere, schedule it with `Authorization: Bearer $CRON_SECRET`.
 - Tune rate limits in `src/lib/rate-limit.ts` for your deployment; the current in-memory limiter is per-instance.
 - Do not promise legal certainty. Keep the limitation language visible in the UI, PDFs, certificate, and verification page.
 

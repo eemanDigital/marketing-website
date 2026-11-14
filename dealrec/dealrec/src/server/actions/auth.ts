@@ -17,8 +17,9 @@ import { OTP_PURPOSE, SESSION_COOKIE } from "@/lib/constants";
 import { createOtp, verifyOtp } from "@/lib/otp";
 import { sendEmail, sendSms, otpEmailHtml } from "@/lib/mail";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { linkVerifiedParties } from "@/lib/party-access";
 import { signInSchema, signUpSchema } from "@/lib/validation";
-import { isNigerianPhone, normalizePhone } from "@/lib/utils";
+import { isNigerianPhone, normalizePhone, safeNextPath } from "@/lib/utils";
 import { type ActionState, errorMessage } from "../action-state";
 import { cookies } from "next/headers";
 import { sha256 } from "@/lib/crypto";
@@ -56,9 +57,11 @@ export async function signUpAction(
   }
 
   const { fullName, email, password } = parsed.data;
+  const next = safeNextPath(formData.get("next"));
   const meta = await getRequestMeta();
   try {
-    enforceRateLimit(`signup:${meta.ipAddress ?? "unknown"}`, 5, 60 * 60 * 1000);
+    if (meta.ipAddress) enforceRateLimit(`signup:${meta.ipAddress}`, 5, 60 * 60 * 1000);
+    enforceRateLimit(`signup-email:${sha256(email)}`, 5, 60 * 60 * 1000);
     const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
     if (existing) return { error: "An account with that email already exists. Sign in instead." };
 
@@ -71,7 +74,7 @@ export async function signUpAction(
     return { error: errorMessage(error) };
   }
 
-  redirect("/verify-account");
+  redirect(next ? `/verify-account?next=${encodeURIComponent(next)}` : "/verify-account");
 }
 
 export async function signInAction(
@@ -86,20 +89,28 @@ export async function signInAction(
     return { error: parsed.error.issues[0]?.message ?? "Check your details." };
   }
 
+  const next = safeNextPath(formData.get("next"));
   const meta = await getRequestMeta();
+  let requiresVerification = false;
   try {
-    enforceRateLimit(`signin:${meta.ipAddress ?? "unknown"}`, 10, 15 * 60 * 1000);
+    if (meta.ipAddress) enforceRateLimit(`signin:${meta.ipAddress}`, 10, 15 * 60 * 1000);
+    enforceRateLimit(`signin-email:${sha256(parsed.data.email)}`, 10, 15 * 60 * 1000);
     const user = await db.user.findUnique({ where: { email: parsed.data.email } });
     if (!user) return { error: "Email or password is incorrect." };
     if (user.suspendedAt) return { error: "This account is suspended. Contact support." };
     const valid = await verifyPassword(parsed.data.password, user.passwordHash);
     if (!valid) return { error: "Email or password is incorrect." };
     await createSession(user.id);
+    requiresVerification = !user.emailVerifiedAt;
+    await linkVerifiedParties(user).catch(() => undefined);
   } catch (error) {
     return { error: errorMessage(error) };
   }
 
-  redirect("/dashboard");
+  if (requiresVerification && next) {
+    redirect(`/verify-account?next=${encodeURIComponent(next)}`);
+  }
+  redirect(next ?? "/dashboard");
 }
 
 export async function signOutAction() {
@@ -126,6 +137,7 @@ export async function verifySignupCodeAction(
 ): Promise<ActionState> {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
+  const next = safeNextPath(formData.get("next"));
   try {
     await verifyOtp({
       purpose: OTP_PURPOSE.SIGNUP_EMAIL,
@@ -133,15 +145,19 @@ export async function verifySignupCodeAction(
       target: user.email,
       code: String(formData.get("code") ?? ""),
     });
+    const verifiedAt = new Date();
     await db.user.update({
       where: { id: user.id },
-      data: { emailVerifiedAt: new Date() },
+      data: { emailVerifiedAt: verifiedAt },
     });
+    await linkVerifiedParties({ ...user, emailVerifiedAt: verifiedAt }).catch(() => undefined);
   } catch (error) {
     return { error: errorMessage(error) };
   }
   revalidatePath("/dashboard");
-  redirect("/dashboard");
+  revalidatePath("/deals");
+  if (next) revalidatePath(next);
+  redirect(next ?? "/dashboard");
 }
 
 export async function requestPasswordResetAction(
@@ -149,9 +165,11 @@ export async function requestPasswordResetAction(
   formData: FormData,
 ): Promise<ActionState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const next = safeNextPath(formData.get("next"));
   const meta = await getRequestMeta();
   try {
-    enforceRateLimit(`reset:${meta.ipAddress ?? "unknown"}`, 5, 30 * 60 * 1000);
+    if (meta.ipAddress) enforceRateLimit(`reset:${meta.ipAddress}`, 5, 30 * 60 * 1000);
+    enforceRateLimit(`reset-email:${sha256(email)}`, 3, 30 * 60 * 1000);
     const user = await db.user.findUnique({ where: { email } });
     if (user) {
       const { code } = await createOtp({
@@ -167,8 +185,10 @@ export async function requestPasswordResetAction(
       });
       return {
         ok: true,
-        success: "If an account exists for that email, a reset code has been sent.",
+        success: "If an account exists for that email, a reset code has been sent. Check your spam or junk folder if it does not arrive.",
         devCode: devCode(code),
+        email,
+        next,
       };
     }
   } catch (error) {
@@ -176,7 +196,9 @@ export async function requestPasswordResetAction(
   }
   return {
     ok: true,
-    success: "If an account exists for that email, a reset code has been sent.",
+    success: "If an account exists for that email, a reset code has been sent. Check your spam or junk folder if it does not arrive.",
+    email,
+    next,
   };
 }
 
@@ -187,6 +209,7 @@ export async function resetPasswordAction(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const code = String(formData.get("code") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const next = safeNextPath(formData.get("next"));
   if (password.length < 8) return { error: "Password must be at least 8 characters." };
 
   try {
@@ -207,7 +230,9 @@ export async function resetPasswordAction(
     return { error: errorMessage(error) };
   }
 
-  redirect("/sign-in?reset=1");
+  const query = new URLSearchParams({ reset: "1", email });
+  if (next) query.set("next", next);
+  redirect(`/sign-in?${query.toString()}`);
 }
 
 export async function updateProfileAction(
@@ -263,14 +288,18 @@ export async function verifyPhoneCodeAction(
       target: user.phoneNumber,
       code: String(formData.get("code") ?? ""),
     });
+    const verifiedAt = new Date();
     await db.user.update({
       where: { id: user.id },
-      data: { phoneVerifiedAt: new Date() },
+      data: { phoneVerifiedAt: verifiedAt },
     });
+    await linkVerifiedParties({ ...user, phoneVerifiedAt: verifiedAt }).catch(() => undefined);
   } catch (error) {
     return { error: errorMessage(error) };
   }
   revalidatePath("/profile");
+  revalidatePath("/dashboard");
+  revalidatePath("/deals");
   return { ok: true, success: "Phone number verified." };
 }
 
