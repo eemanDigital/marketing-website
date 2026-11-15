@@ -10,6 +10,9 @@ import {
 import { MAX_UPLOAD_BYTES } from "./constants";
 
 function storageRoot() {
+  if (process.env.VERCEL && !process.env.S3_BUCKET?.trim()) {
+    throw new Error("S3_BUCKET must be configured when running on Vercel.");
+  }
   const configured = process.env.STORAGE_DIR ?? ".storage";
   return path.isAbsolute(configured)
     ? configured
@@ -55,13 +58,13 @@ function getS3Client() {
     );
   }
   s3Client = new S3Client({
-    region: process.env.S3_REGION ?? process.env.AWS_REGION ?? "auto",
+    region: process.env.S3_REGION || process.env.AWS_REGION || "auto",
     endpoint: process.env.S3_ENDPOINT || undefined,
     forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
     credentials: {
       accessKeyId,
       secretAccessKey,
-      sessionToken: process.env.S3_SESSION_TOKEN ?? process.env.AWS_SESSION_TOKEN,
+      sessionToken: process.env.S3_SESSION_TOKEN || process.env.AWS_SESSION_TOKEN || undefined,
     },
   });
   return s3Client;

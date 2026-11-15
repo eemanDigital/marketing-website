@@ -4,6 +4,9 @@ import { findInvitation, invitationProblem } from "@/lib/deals";
 import { findWitness, witnessProblem } from "@/lib/witness";
 import { buildEvidencePack } from "@/lib/evidence";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 export async function GET(
   request: NextRequest,
   ctx: RouteContext<"/deals/[dealId]/evidence">,
