@@ -26,7 +26,7 @@
 - Tailwind CSS v4
 - Prisma 7 + Neon PostgreSQL (`@prisma/adapter-pg`)
 - `pdf-lib` for PDFs, `qrcode` for verification QR codes, `signature_pad` for drawn signatures
-- Private file storage: local `.storage/` in development, S3-compatible object storage in production
+- Private file storage: local `.storage/` in development, Cloudflare R2 in production
 
 ## Local setup
 
@@ -53,8 +53,9 @@ Open <http://localhost:3000>.
 | `DIRECT_URL` | yes for migrations | Neon direct/unpooled PostgreSQL URL used by Prisma CLI |
 | `APP_URL` | yes in production | Public origin used in invite, verify, and QR links |
 | `SESSION_SECRET` | yes | Signs session cookies; use a long random value |
-| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | production | S3-compatible private object storage; leave `S3_BUCKET` empty for local `.storage/` |
-| `S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`, `S3_SESSION_TOKEN` | no | Custom S3 endpoint (R2/MinIO/B2), path-style addressing, and temporary credentials |
+| `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | production | Cloudflare R2 private object storage; leave `R2_BUCKET` empty for local `.storage/` |
+| `R2_ACCOUNT_ID`, `R2_ENDPOINT`, `R2_REGION` | no | Builds the R2 endpoint if `R2_ENDPOINT` is omitted; region defaults to `auto` |
+| `R2_FORCE_PATH_STYLE` | no | Set `true` only if path-style requests are required; R2 normally uses the default |
 | `STORAGE_DIR` | no | Local upload directory, default `.storage`; not persistent on Vercel |
 | `RESEND_API_KEY`, `EMAIL_FROM` | no | Real email delivery; otherwise dev logs email |
 | `SMS_API_KEY`, `SMS_SENDER_ID` | no | Real Termii SMS delivery; otherwise dev logs SMS |
@@ -139,17 +140,16 @@ DATABASE_URL=postgresql://...-pooler.../dealrec?sslmode=require
 DIRECT_URL=postgresql://.../dealrec?sslmode=require
 APP_URL=https://your-production-domain
 SESSION_SECRET=long-random-value
-S3_BUCKET=dealrec-production
-S3_REGION=auto
-S3_ENDPOINT=https://your-s3-compatible-endpoint
-S3_ACCESS_KEY_ID=...
-S3_SECRET_ACCESS_KEY=...
+R2_BUCKET=dealrec-production
+R2_ACCOUNT_ID=your-cloudflare-account-id
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
 RESEND_API_KEY=...
 EMAIL_FROM=dealrec <records@your-verified-domain>
 CRON_SECRET=long-random-value
 ```
 
-Do **not** set `STORAGE_DIR` on Vercel; the filesystem is ephemeral and should not hold documents. Use AWS S3, Cloudflare R2, Backblaze B2, or another S3-compatible bucket. Set `S3_ENDPOINT` for R2/B2/MinIO, and set `S3_FORCE_PATH_STYLE=true` only if your provider requires path-style requests.
+Do **not** set `STORAGE_DIR` on Vercel; the filesystem is ephemeral and should not hold documents. Production uses Cloudflare R2 through its S3-compatible API. Create an R2 bucket and an API token with Object Read & Write access, then set `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`. The endpoint is derived automatically as `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`; `R2_ENDPOINT` can override it. The equivalent `S3_*` variable names are also supported.
 
 Vercel runs `npm ci` (which generates Prisma Client), then `npm run vercel-build` (`prisma generate && next build`). It does not run database migrations automatically. Before the first deployment, and after any new migration, run against the production database:
 
@@ -166,7 +166,7 @@ If you use Vercel's Git integration, make sure the commit includes `prisma/migra
 - Set a strong `SESSION_SECRET`, a real `APP_URL`, and configure email/SMS.
 - Use separate Neon branches for development and production. Keep `DATABASE_URL` pooled and `DIRECT_URL` unpooled.
 - Run `npm run db:migrate:deploy` during release before starting the new build. Do not run the demo seed in production.
-- On Vercel, use S3-compatible object storage. On a server with a persistent disk, `.storage/` can be used instead; back it up because database rows reference stored file keys.
+- On Vercel, use Cloudflare R2. On a server with a persistent disk, `.storage/` can be used instead; back it up because database rows reference stored file keys.
 - Put the app behind HTTPS. Session cookies become `secure` automatically when `NODE_ENV=production`.
 - Restrict admin access to trusted accounts; admin actions are audit-logged.
 - The checked-in Vercel cron calls `GET /api/cron/reminders` daily. Elsewhere, schedule it with `Authorization: Bearer $CRON_SECRET`.

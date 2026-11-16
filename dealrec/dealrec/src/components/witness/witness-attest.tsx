@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function WitnessAttest({
   token,
@@ -41,7 +42,7 @@ export function WitnessAttest({
         description={`Confirm that you observed ${witnessedName} sign version ${versionNumber}.`}
       />
       <CardBody>
-        <form action={action} className="space-y-4">
+        <PreservedForm action={action} className="space-y-4">
           <input type="hidden" name="token" value={token} />
           <ActionMessage state={state} />
           <Field label="Your full name" htmlFor="signerName" required>
@@ -83,7 +84,7 @@ export function WitnessAttest({
           <SubmitButton className="w-full" pendingLabel="Attesting...">
             Submit witness attestation
           </SubmitButton>
-        </form>
+        </PreservedForm>
       </CardBody>
     </Card>
   );

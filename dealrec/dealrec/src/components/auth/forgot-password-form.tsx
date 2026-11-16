@@ -6,6 +6,7 @@ import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function ForgotPasswordForm({
   initialEmail = "",
@@ -32,7 +33,7 @@ export function ForgotPasswordForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <PreservedForm action={action} className="space-y-4">
       <ActionMessage state={state} />
       {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Email address" htmlFor="email" required>
@@ -50,6 +51,6 @@ export function ForgotPasswordForm({
       <SubmitButton className="w-full" pendingLabel="Sending...">
         Send reset code
       </SubmitButton>
-    </form>
+    </PreservedForm>
   );
 }

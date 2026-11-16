@@ -10,6 +10,7 @@ import { buttonStyles } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 type AccountMode = "signedOut" | "linked" | "linkedOther" | "claimable" | "mismatch";
 
@@ -107,7 +108,7 @@ export function InviteAccount({
                   />
                 </div>
               ) : (
-                <form action={createAction} className="space-y-3">
+                <PreservedForm action={createAction} className="space-y-3">
                   <input type="hidden" name="token" value={token} />
                   <p className="text-[12px] leading-5 text-ink-600">
                     Your email is already verified by this invitation. Set a password to save this
@@ -157,7 +158,7 @@ export function InviteAccount({
                       Sign in
                     </Link>
                   </p>
-                </form>
+                </PreservedForm>
               )
             ) : (
               <>

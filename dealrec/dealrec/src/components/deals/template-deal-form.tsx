@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, type FormEvent } from "react";
+import { useActionState } from "react";
 import { ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
 import { createTemplateDealAction } from "@/server/actions/deals";
@@ -11,19 +11,14 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function TemplateDealForm({ template }: { template: TemplateDefinition }) {
   const [state, action, pending] = useActionState(createTemplateDealAction, null);
   const fieldErrors = state?.fieldErrors ?? {};
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    startTransition(() => action(formData));
-  }
-
   return (
-    <form action={action} onSubmit={submit} className="space-y-4">
+    <PreservedForm action={action} className="space-y-4">
       <input type="hidden" name="templateSlug" value={template.slug} />
 
       <Link href="/deals/new" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-500 hover:text-ink-800">
@@ -112,6 +107,6 @@ export function TemplateDealForm({ template }: { template: TemplateDefinition })
         </Link>
         <SubmitButton pending={pending} pendingLabel="Creating deal...">Create and continue</SubmitButton>
       </div>
-    </form>
+    </PreservedForm>
   );
 }

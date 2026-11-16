@@ -8,6 +8,7 @@ import { Field, Textarea } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Alert } from "@/components/ui/alert";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 type CommentRecord = {
   id: string;
@@ -63,7 +64,7 @@ export function CommentActions({
       <ActionMessage state={retractState} />
 
       {mode === "edit" ? (
-        <form action={editAction} className="mt-2.5 space-y-3 rounded-xl border border-ink-200 bg-white p-3">
+        <PreservedForm action={editAction} className="mt-2.5 space-y-3 rounded-xl border border-ink-200 bg-white p-3">
           <input type="hidden" name="dealId" value={dealId} />
           <input type="hidden" name="commentId" value={comment.id} />
           <input type="hidden" name="revision" value={comment.revision} />
@@ -104,11 +105,11 @@ export function CommentActions({
               Cancel
             </button>
           </div>
-        </form>
+        </PreservedForm>
       ) : null}
 
       {mode === "retract" ? (
-        <form action={retractAction} className="mt-2.5 space-y-3 rounded-xl border border-red-200 bg-red-50/50 p-3">
+        <PreservedForm action={retractAction} className="mt-2.5 space-y-3 rounded-xl border border-red-200 bg-red-50/50 p-3">
           <input type="hidden" name="dealId" value={dealId} />
           <input type="hidden" name="commentId" value={comment.id} />
           <input type="hidden" name="revision" value={comment.revision} />
@@ -143,7 +144,7 @@ export function CommentActions({
               Keep comment
             </button>
           </div>
-        </form>
+        </PreservedForm>
       ) : null}
     </div>
   );

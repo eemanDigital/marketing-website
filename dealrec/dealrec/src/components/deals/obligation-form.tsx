@@ -5,6 +5,7 @@ import { addObligationAction } from "@/server/actions/deals";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function ObligationForm({
   dealId,
@@ -21,7 +22,7 @@ export function ObligationForm({
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="space-y-3">
+    <PreservedForm ref={formRef} action={action} className="space-y-3">
       <input type="hidden" name="dealId" value={dealId} />
       <ActionMessage state={state} />
       <div className="grid gap-3 sm:grid-cols-2">
@@ -51,6 +52,6 @@ export function ObligationForm({
       <SubmitButton size="sm" variant="outline" pendingLabel="Adding...">
         Add obligation
       </SubmitButton>
-    </form>
+    </PreservedForm>
   );
 }

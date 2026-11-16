@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function WitnessAccept({
   token,
@@ -38,7 +39,7 @@ export function WitnessAccept({
         description={`Confirm your intention to witness ${witnessedName} sign version ${versionNumber}.`}
       />
       <CardBody>
-        <form action={action} className="space-y-4">
+        <PreservedForm action={action} className="space-y-4">
           <input type="hidden" name="token" value={token} />
           <ActionMessage state={state} />
           <Checkbox
@@ -61,7 +62,7 @@ export function WitnessAccept({
           <SubmitButton className="w-full" pendingLabel="Recording intention...">
             I agree to witness
           </SubmitButton>
-        </form>
+        </PreservedForm>
       </CardBody>
     </Card>
   );

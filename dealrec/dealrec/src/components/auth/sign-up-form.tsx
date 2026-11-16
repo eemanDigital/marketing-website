@@ -5,12 +5,13 @@ import { signUpAction } from "@/server/actions/auth";
 import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function SignUpForm({ next, email }: { next?: string | null; email?: string }) {
   const [state, action] = useActionState(signUpAction, null);
 
   return (
-    <form action={action} className="space-y-4">
+    <PreservedForm action={action} className="space-y-4">
       <ActionMessage state={state} />
       {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Full name" htmlFor="fullName" required>
@@ -38,6 +39,6 @@ export function SignUpForm({ next, email }: { next?: string | null; email?: stri
       <SubmitButton className="w-full" pendingLabel="Creating account...">
         Create account
       </SubmitButton>
-    </form>
+    </PreservedForm>
   );
 }

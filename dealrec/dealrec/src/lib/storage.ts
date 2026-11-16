@@ -9,9 +9,17 @@ import {
 } from "@aws-sdk/client-s3";
 import { MAX_UPLOAD_BYTES } from "./constants";
 
+function envValue(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
 function storageRoot() {
-  if (process.env.VERCEL && !process.env.S3_BUCKET?.trim()) {
-    throw new Error("S3_BUCKET must be configured when running on Vercel.");
+  if (process.env.VERCEL && !s3Bucket()) {
+    throw new Error("Cloudflare R2 (R2_BUCKET) or S3 storage must be configured on Vercel.");
   }
   const configured = process.env.STORAGE_DIR ?? ".storage";
   return path.isAbsolute(configured)
@@ -43,28 +51,40 @@ function resolveKey(key: string) {
 }
 
 function s3Bucket() {
-  return process.env.S3_BUCKET?.trim() || null;
+  return envValue("R2_BUCKET", "S3_BUCKET") ?? null;
 }
 
 let s3Client: S3Client | null = null;
 
 function getS3Client() {
   if (s3Client) return s3Client;
-  const accessKeyId = process.env.S3_ACCESS_KEY_ID ?? process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY ?? process.env.AWS_SECRET_ACCESS_KEY;
+  const accessKeyId = envValue("R2_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID");
+  const secretAccessKey = envValue(
+    "R2_SECRET_ACCESS_KEY",
+    "S3_SECRET_ACCESS_KEY",
+    "AWS_SECRET_ACCESS_KEY",
+  );
   if (!accessKeyId || !secretAccessKey) {
     throw new Error(
-      "S3_BUCKET is set but S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are missing.",
+      "Object storage is configured but R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY are missing.",
     );
   }
+  const accountId = envValue("R2_ACCOUNT_ID");
+  const endpoint =
+    envValue("R2_ENDPOINT", "S3_ENDPOINT") ??
+    (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : undefined);
+  if (envValue("R2_BUCKET") && !endpoint) {
+    throw new Error("R2_ACCOUNT_ID or R2_ENDPOINT must be configured for Cloudflare R2.");
+  }
   s3Client = new S3Client({
-    region: process.env.S3_REGION || process.env.AWS_REGION || "auto",
-    endpoint: process.env.S3_ENDPOINT || undefined,
-    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+    region: envValue("R2_REGION", "S3_REGION", "AWS_REGION") ?? "auto",
+    endpoint,
+    forcePathStyle:
+      process.env.R2_FORCE_PATH_STYLE === "true" || process.env.S3_FORCE_PATH_STYLE === "true",
     credentials: {
       accessKeyId,
       secretAccessKey,
-      sessionToken: process.env.S3_SESSION_TOKEN || process.env.AWS_SESSION_TOKEN || undefined,
+      sessionToken: envValue("R2_SESSION_TOKEN", "S3_SESSION_TOKEN", "AWS_SESSION_TOKEN"),
     },
   });
   return s3Client;

@@ -7,6 +7,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Alert } from "@/components/ui/alert";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function PaymentForm({ dealId }: { dealId: string }) {
   const [state, action] = useActionState(recordPaymentAction, null);
@@ -17,7 +18,7 @@ export function PaymentForm({ dealId }: { dealId: string }) {
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="space-y-3">
+    <PreservedForm ref={formRef} action={action} className="space-y-3">
       <input type="hidden" name="dealId" value={dealId} />
       <ActionMessage state={state} />
       <div className="grid gap-3 sm:grid-cols-2">
@@ -59,6 +60,6 @@ export function PaymentForm({ dealId }: { dealId: string }) {
       <SubmitButton size="sm" pendingLabel="Recording...">
         Record payment
       </SubmitButton>
-    </form>
+    </PreservedForm>
   );
 }

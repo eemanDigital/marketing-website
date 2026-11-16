@@ -5,6 +5,7 @@ import { updateProfileAction } from "@/server/actions/auth";
 import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function ProfileForm({
   fullName,
@@ -18,7 +19,7 @@ export function ProfileForm({
   const [state, action] = useActionState(updateProfileAction, null);
 
   return (
-    <form action={action} className="space-y-3">
+    <PreservedForm action={action} className="space-y-3">
       <ActionMessage state={state} />
       <Field label="Full name" htmlFor="fullName" required>
         <Input id="fullName" name="fullName" defaultValue={fullName} required minLength={2} maxLength={120} />
@@ -32,6 +33,6 @@ export function ProfileForm({
       <SubmitButton size="sm" pendingLabel="Saving...">
         Save profile
       </SubmitButton>
-    </form>
+    </PreservedForm>
   );
 }

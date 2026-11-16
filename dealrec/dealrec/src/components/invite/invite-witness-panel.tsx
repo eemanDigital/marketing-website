@@ -11,6 +11,7 @@ import { ActionMessage } from "@/components/ui/action-message";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 type WitnessSummary = {
   id: string;
@@ -94,7 +95,7 @@ export function InviteWitnessPanel({
         <ActionMessage state={state} />
 
         {witnesses.length === 0 && !disabled ? (
-          <form action={action} className="space-y-3 rounded-xl border border-ink-100 p-3">
+          <PreservedForm action={action} className="space-y-3 rounded-xl border border-ink-100 p-3">
             <input type="hidden" name="token" value={token} />
             <p className="inline-flex items-center gap-2 text-[12px] font-bold text-ink-900">
               <UserPlus className="h-3.5 w-3.5" aria-hidden />
@@ -121,7 +122,7 @@ export function InviteWitnessPanel({
               <Link2 className="h-3.5 w-3.5" aria-hidden />
               Create witness link
             </SubmitButton>
-          </form>
+          </PreservedForm>
         ) : null}
 
         {disabled && witnesses.length === 0 ? (

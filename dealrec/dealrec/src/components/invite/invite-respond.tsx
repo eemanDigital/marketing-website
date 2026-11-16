@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 type Mode = "accept" | "change" | "decline";
 
@@ -64,7 +65,7 @@ export function InviteRespond({ token }: { token: string }) {
         })}
       </div>
 
-      <form action={action} className="space-y-3">
+      <PreservedForm action={action} className="space-y-3">
         <input type="hidden" name="token" value={token} />
         <input type="hidden" name="decision" value={mode} />
         {mode !== "accept" ? (
@@ -85,7 +86,7 @@ export function InviteRespond({ token }: { token: string }) {
         <p className="text-[11px] leading-5 text-ink-500">
           {choice.label}. This response is recorded as a deal event with your verified contact.
         </p>
-      </form>
+      </PreservedForm>
     </div>
   );
 }

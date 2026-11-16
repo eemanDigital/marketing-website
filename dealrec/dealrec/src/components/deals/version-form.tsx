@@ -8,6 +8,7 @@ import { TemplateFieldInput } from "./template-fields";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Alert } from "@/components/ui/alert";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function VersionForm({
   dealId,
@@ -34,7 +35,7 @@ export function VersionForm({
       </button>
 
       {open ? (
-        <form action={action} className="mt-3 space-y-4 rounded-2xl border border-ink-200 bg-white p-4">
+        <PreservedForm action={action} className="mt-3 space-y-4 rounded-2xl border border-ink-200 bg-white p-4">
           <input type="hidden" name="dealId" value={dealId} />
           <Alert tone="warning" title="This creates a new version">
             Existing signatures apply only to the current version. The other party must verify, review
@@ -57,7 +58,7 @@ export function VersionForm({
           <SubmitButton size="sm" pendingLabel="Creating version...">
             Create revised version
           </SubmitButton>
-        </form>
+        </PreservedForm>
       ) : null}
     </div>
   );

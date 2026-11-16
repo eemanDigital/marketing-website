@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function InviteSign({
   token,
@@ -33,7 +34,7 @@ export function InviteSign({
         description="Your signature will be locked to the exact version you reviewed."
       />
       <CardBody>
-        <form action={action} className="space-y-4">
+        <PreservedForm action={action} className="space-y-4">
           <input type="hidden" name="token" value={token} />
           <ActionMessage state={state} />
           <Field label="Your full name" htmlFor="signerName" required>
@@ -64,7 +65,7 @@ export function InviteSign({
           <SubmitButton className="w-full" pendingLabel="Signing...">
             Sign agreement
           </SubmitButton>
-        </form>
+        </PreservedForm>
       </CardBody>
     </Card>
   );

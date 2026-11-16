@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Field, Textarea } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function CommentForm({
   dealId,
@@ -27,7 +28,7 @@ export function CommentForm({
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="space-y-3">
+    <PreservedForm ref={formRef} action={action} className="space-y-3">
       <input type="hidden" name="dealId" value={dealId} />
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[11px] text-ink-500">
@@ -88,6 +89,6 @@ export function CommentForm({
           Post comment
         </SubmitButton>
       </div>
-    </form>
+    </PreservedForm>
   );
 }

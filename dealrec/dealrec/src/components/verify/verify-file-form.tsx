@@ -6,6 +6,7 @@ import { checkFileAction } from "@/server/actions/verify";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function VerifyFileForm({ identifier }: { identifier: string }) {
   const [result, action] = useActionState(checkFileAction, null);
@@ -22,7 +23,7 @@ export function VerifyFileForm({ identifier }: { identifier: string }) {
         description="Upload an executed PDF to compare its SHA-256 hash with the platform record."
       />
       <CardBody className="space-y-3">
-        <form action={action} className="space-y-3">
+        <PreservedForm action={action} className="space-y-3">
           <input type="hidden" name="identifier" value={identifier} />
           <input
             name="file"
@@ -34,7 +35,7 @@ export function VerifyFileForm({ identifier }: { identifier: string }) {
           <SubmitButton size="sm" variant="outline" pendingLabel="Comparing...">
             Compare file hash
           </SubmitButton>
-        </form>
+        </PreservedForm>
 
         {result && !result.ok ? <Alert tone="error">{result.error}</Alert> : null}
         {result?.ok ? (

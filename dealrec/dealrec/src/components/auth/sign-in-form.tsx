@@ -6,6 +6,7 @@ import { signInAction } from "@/server/actions/auth";
 import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function SignInForm({
   reset,
@@ -23,7 +24,7 @@ export function SignInForm({
   const [state, action] = useActionState(signInAction, null);
 
   return (
-    <form action={action} className="space-y-4">
+    <PreservedForm action={action} className="space-y-4">
       {reset ? (
         <ActionMessage state={{ success: "Password reset. Sign in with your new password." }} />
       ) : null}
@@ -59,6 +60,6 @@ export function SignInForm({
       <SubmitButton className="w-full" pendingLabel="Signing in...">
         Sign in
       </SubmitButton>
-    </form>
+    </PreservedForm>
   );
 }

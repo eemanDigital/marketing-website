@@ -7,6 +7,7 @@ import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function PhoneVerify({ hasPhone }: { hasPhone: boolean }) {
   const [state, action] = useActionState(verifyPhoneCodeAction, null);
@@ -29,7 +30,7 @@ export function PhoneVerify({ hasPhone }: { hasPhone: boolean }) {
       <Button type="button" variant="outline" size="sm" onClick={send} disabled={pending}>
         {pending ? "Sending..." : "Send SMS code"}
       </Button>
-      <form action={action} className="space-y-3">
+      <PreservedForm action={action} className="space-y-3">
         <ActionMessage state={state} />
         <Field label="SMS code" htmlFor="phoneCode">
           <Input
@@ -46,7 +47,7 @@ export function PhoneVerify({ hasPhone }: { hasPhone: boolean }) {
         <SubmitButton size="sm" variant="outline" pendingLabel="Verifying...">
           Verify phone
         </SubmitButton>
-      </form>
+      </PreservedForm>
     </div>
   );
 }

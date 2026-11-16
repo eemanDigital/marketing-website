@@ -5,6 +5,7 @@ import { resetPasswordAction } from "@/server/actions/auth";
 import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function ResetPasswordForm({
   email = "",
@@ -16,7 +17,7 @@ export function ResetPasswordForm({
   const [state, action] = useActionState(resetPasswordAction, null);
 
   return (
-    <form action={action} className="space-y-4">
+    <PreservedForm action={action} className="space-y-4">
       <ActionMessage state={state} />
       {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Email address" htmlFor="email" required>
@@ -41,6 +42,6 @@ export function ResetPasswordForm({
       <SubmitButton className="w-full" pendingLabel="Resetting...">
         Reset password
       </SubmitButton>
-    </form>
+    </PreservedForm>
   );
 }

@@ -7,7 +7,7 @@ dealrec is a standard Next.js server app. It needs a long-running Node process, 
 - Node.js 20+ server or container
 - HTTPS reverse proxy (Caddy, nginx, or a managed platform)
 - Neon PostgreSQL production branch/database
-- Persistent volume mounted at the app directory for `.storage/`, or S3-compatible object storage
+- Cloudflare R2 object storage for Vercel, or a persistent volume mounted at the app directory for `.storage/`
 - Neon backups/point-in-time restore **and** backups of `.storage/`
 - Scheduled cron request to `/api/cron/reminders`
 
@@ -48,35 +48,42 @@ APP_URL=https://your-domain.example
 SESSION_SECRET=...
 DATABASE_URL=postgresql://...-pooler.../dealrec?sslmode=require
 DIRECT_URL=postgresql://.../dealrec?sslmode=require
-S3_BUCKET=dealrec-production
-S3_REGION=auto
-S3_ENDPOINT=https://your-s3-compatible-endpoint
-S3_ACCESS_KEY_ID=...
-S3_SECRET_ACCESS_KEY=...
+R2_BUCKET=dealrec-production
+R2_ACCOUNT_ID=your-cloudflare-account-id
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
 ```
 
-For a server with a persistent disk, omit the `S3_*` variables and set `STORAGE_DIR` instead. Also configure email/SMS and `CRON_SECRET`. Run the demo seed only in development.
+For a server with a persistent disk, omit the `R2_*` variables and set `STORAGE_DIR` instead. Also configure email/SMS and `CRON_SECRET`. Run the demo seed only in development.
 
 ## Vercel setup
 
-Vercel runs the app as serverless functions, so use S3-compatible object storage rather than the local filesystem.
+Vercel runs the app as serverless functions, so use Cloudflare R2 rather than the local filesystem.
 
 1. Import the repository into Vercel and set **Root Directory** to `dealrec/dealrec`.
 2. Keep the checked-in `vercel.json`; it sets `npm run vercel-build` and schedules the daily reminder cron.
 3. Add the production environment variables in the Vercel dashboard. Do not set `STORAGE_DIR`.
 4. Run `npm run db:migrate:deploy` with the production `DATABASE_URL`/`DIRECT_URL` before the first deploy and after new migrations.
 
-Required storage variables:
+Required Cloudflare R2 variables:
 
 | Variable | Purpose |
 | --- | --- |
-| `S3_BUCKET` | Private bucket name |
-| `S3_REGION` | Provider region, or `auto` for Cloudflare R2 |
-| `S3_ENDPOINT` | Provider S3 endpoint for R2, B2, MinIO, or another S3-compatible service |
-| `S3_ACCESS_KEY_ID` | Storage access key |
-| `S3_SECRET_ACCESS_KEY` | Storage secret key |
-| `S3_FORCE_PATH_STYLE` | Set `true` only when the provider requires path-style requests |
-| `S3_SESSION_TOKEN` | Optional temporary credential token |
+| `R2_BUCKET` | Private R2 bucket name |
+| `R2_ACCOUNT_ID` | Cloudflare account ID; used to derive the R2 S3 endpoint |
+| `R2_ACCESS_KEY_ID` | R2 API token access key ID |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret access key |
+
+Optional storage variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `R2_ENDPOINT` | Override the derived endpoint, e.g. a custom R2 domain |
+| `R2_REGION` | Defaults to `auto` |
+| `R2_FORCE_PATH_STYLE` | Set `true` only if path-style requests are required |
+| `S3_*` | Equivalent aliases; `R2_*` takes precedence when both are set |
+
+Create the R2 API token with **Object Read & Write** permission limited to this bucket. The app serves files privately through authenticated routes; the bucket does not need public access.
 
 `npm ci` runs `prisma generate`. The Vercel build command is `prisma generate && next build`; migrations are intentionally not part of the build so preview deployments cannot alter a production database.
 
@@ -123,7 +130,7 @@ Do not commit real Resend keys. Rotate any key that has been pasted into a track
 
 - Set `APP_URL` to the exact HTTPS origin. Invitation, verification and QR links depend on it.
 - Use a long random `SESSION_SECRET`. Rotating it invalidates existing sessions.
-- On Vercel, use S3-compatible object storage. On a server with a persistent disk, keep `.storage` outside the build output and back it up with the database.
+- On Vercel, use Cloudflare R2. On a server with a persistent disk, keep `.storage` outside the build output and back it up with the database.
 - Use the pooled Neon URL at runtime. Reserve `DIRECT_URL` for migrations.
 - Configure `RESEND_API_KEY`, `EMAIL_FROM`, `SMS_API_KEY`, and `SMS_SENDER_ID` so OTPs are actually delivered.
 - Set `CRON_SECRET` and call:
@@ -139,15 +146,15 @@ Client IP headers are ignored by default. Set `TRUST_PROXY_HEADERS=true` only wh
 ## Backups and restore
 
 1. Enable Neon backups/point-in-time restore for the production branch.
-2. Back up `.storage/` separately on the same schedule.
-3. Restore the database and `.storage/` to points close together; document rows reference storage keys.
+2. On Vercel, protect the R2 bucket with versioning or a separate backup process. On a server, back up `.storage/` on the same schedule.
+3. Restore the database and object storage to points close together; document rows reference storage keys.
 
 A database backup alone is not enough because documents and signature assets live outside PostgreSQL.
 
 ## Scaling
 
 - Neon handles the hosted PostgreSQL layer; use its pooled connection string for multiple app instances.
-- Replace local storage with an S3-compatible implementation while keeping the same interface in `src/lib/storage.ts`.
+- Production storage uses Cloudflare R2 through `src/lib/storage.ts`; local development keeps the `.storage/` fallback.
 - Replace the in-memory rate limiter with Redis or a database-backed limiter.
 - Ensure cron runs once per schedule, not once per instance.
 - Keep file writes and database commits coordinated; on failure, clean up orphaned files.

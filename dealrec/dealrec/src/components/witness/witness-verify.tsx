@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function WitnessVerify({ token, contact }: { token: string; contact: string }) {
   const [state, action] = useActionState(verifyWitnessOtpAction, null);
@@ -38,7 +39,7 @@ export function WitnessVerify({ token, contact }: { token: string; contact: stri
           {pending ? "Sending code..." : "Send verification code"}
         </Button>
 
-        <form action={action} className="space-y-3">
+        <PreservedForm action={action} className="space-y-3">
           <input type="hidden" name="token" value={token} />
           <ActionMessage state={state} />
           <Field label="6-digit code" htmlFor="code" required>
@@ -57,7 +58,7 @@ export function WitnessVerify({ token, contact }: { token: string; contact: stri
           <SubmitButton className="w-full" pendingLabel="Verifying...">
             Verify and continue
           </SubmitButton>
-        </form>
+        </PreservedForm>
         <p className="text-[11px] leading-5 text-ink-500">
           The code proves control of the contact channel the inviting party recorded. It is not an
           identity check. Never share the code with anyone.

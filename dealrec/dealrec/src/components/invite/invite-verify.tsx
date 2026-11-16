@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function InviteVerify({ token, contact }: { token: string; contact: string }) {
   const [state, action] = useActionState(verifyInviteOtpAction, null);
@@ -44,7 +45,7 @@ export function InviteVerify({ token, contact }: { token: string; contact: strin
           {pending ? "Sending code..." : "Send verification code"}
         </Button>
 
-        <form action={action} className="space-y-3">
+        <PreservedForm action={action} className="space-y-3">
           <input type="hidden" name="token" value={token} />
           <ActionMessage state={state} />
           <Field label="6-digit code" htmlFor="code" required>
@@ -63,7 +64,7 @@ export function InviteVerify({ token, contact }: { token: string; contact: strin
           <SubmitButton className="w-full" pendingLabel="Verifying...">
             Verify and continue
           </SubmitButton>
-        </form>
+        </PreservedForm>
         <p className="text-[11px] leading-5 text-ink-500">
           The code proves control of this contact channel for this session. It is not a national
           identity check. Never share the code with anyone.

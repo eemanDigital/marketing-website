@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { buttonStyles } from "@/components/ui/button";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 type PartyOption = {
   id: string;
@@ -180,7 +181,7 @@ export function WitnessPanel({
             a witness.
           </p>
         ) : (
-          <form action={addAction} className="space-y-3 rounded-xl border border-ink-100 p-3">
+          <PreservedForm action={addAction} className="space-y-3 rounded-xl border border-ink-100 p-3">
             <input type="hidden" name="dealId" value={dealId} />
             <p className="inline-flex items-center gap-2 text-[12px] font-bold text-ink-900">
               <UserPlus className="h-3.5 w-3.5" aria-hidden />
@@ -231,7 +232,7 @@ export function WitnessPanel({
             <SubmitButton size="sm" pendingLabel="Creating...">
               Create witness link
             </SubmitButton>
-          </form>
+          </PreservedForm>
         )}
       </CardBody>
     </Card>

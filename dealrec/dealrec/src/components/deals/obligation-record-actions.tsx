@@ -13,6 +13,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Alert } from "@/components/ui/alert";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 type ObligationRecord = {
   id: string;
@@ -108,7 +109,7 @@ export function ObligationRecordActions({
       <ActionMessage state={cancelState} />
 
       {mode === "edit" ? (
-        <form action={editAction} className="mt-3 space-y-3 rounded-xl border border-ink-200 bg-white p-3">
+        <PreservedForm action={editAction} className="mt-3 space-y-3 rounded-xl border border-ink-200 bg-white p-3">
           <input type="hidden" name="dealId" value={dealId} />
           <input type="hidden" name="obligationId" value={obligation.id} />
           <input type="hidden" name="revision" value={obligation.revision} />
@@ -201,11 +202,11 @@ export function ObligationRecordActions({
               Cancel
             </button>
           </div>
-        </form>
+        </PreservedForm>
       ) : null}
 
       {mode === "cancel" ? (
-        <form action={cancelAction} className="mt-3 space-y-3 rounded-xl border border-red-200 bg-red-50/50 p-3">
+        <PreservedForm action={cancelAction} className="mt-3 space-y-3 rounded-xl border border-red-200 bg-red-50/50 p-3">
           <input type="hidden" name="dealId" value={dealId} />
           <input type="hidden" name="obligationId" value={obligation.id} />
           <input type="hidden" name="revision" value={obligation.revision} />
@@ -240,7 +241,7 @@ export function ObligationRecordActions({
               Keep obligation
             </button>
           </div>
-        </form>
+        </PreservedForm>
       ) : null}
     </div>
   );

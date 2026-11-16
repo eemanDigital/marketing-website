@@ -7,6 +7,7 @@ import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function VerifyAccountForm({ next }: { next?: string | null }) {
   const [state, action] = useActionState(verifySignupCodeAction, null);
@@ -22,7 +23,7 @@ export function VerifyAccountForm({ next }: { next?: string | null }) {
   return (
     <div className="space-y-4">
       <ActionMessage state={resendState} />
-      <form action={action} className="space-y-4">
+      <PreservedForm action={action} className="space-y-4">
         {next ? <input type="hidden" name="next" value={next} /> : null}
         <ActionMessage state={state} />
         <Field label="Verification code" htmlFor="code" required hint="Enter the 6-digit code sent to your email.">
@@ -41,7 +42,7 @@ export function VerifyAccountForm({ next }: { next?: string | null }) {
         <SubmitButton className="w-full" pendingLabel="Verifying...">
           Verify email
         </SubmitButton>
-      </form>
+      </PreservedForm>
       <Button type="button" variant="outline" className="w-full" onClick={resend} disabled={pending}>
         {pending ? "Sending..." : "Resend code"}
       </Button>

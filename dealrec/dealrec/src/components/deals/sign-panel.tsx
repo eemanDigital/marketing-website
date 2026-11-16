@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionMessage } from "@/components/ui/action-message";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
+import { PreservedForm } from "@/components/ui/preserved-form";
 
 export function SignPanel({
   dealId,
@@ -63,7 +64,7 @@ export function SignPanel({
         description="Confirm that you have reviewed this exact version and intend to be bound by it."
       />
       <CardBody>
-        <form action={action} className="space-y-4">
+        <PreservedForm action={action} className="space-y-4">
           <input type="hidden" name="dealId" value={dealId} />
           <ActionMessage state={state} />
 
@@ -101,7 +102,7 @@ export function SignPanel({
           <SubmitButton className="w-full" pendingLabel="Signing...">
             Sign agreement
           </SubmitButton>
-        </form>
+        </PreservedForm>
       </CardBody>
     </Card>
   );
