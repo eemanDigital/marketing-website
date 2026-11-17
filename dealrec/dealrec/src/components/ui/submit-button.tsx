@@ -10,6 +10,7 @@ export function SubmitButton({
   variant = "primary",
   size = "md",
   className,
+  disabled,
   pending: pendingOverride,
 }: {
   children: React.ReactNode;
@@ -17,12 +18,13 @@ export function SubmitButton({
   variant?: "primary" | "secondary" | "outline" | "ghost" | "danger" | "sand";
   size?: "sm" | "md" | "lg" | "icon";
   className?: string;
+  disabled?: boolean;
   pending?: boolean;
 }) {
   const { pending: formPending } = useFormStatus();
   const pending = pendingOverride ?? formPending;
   return (
-    <Button type="submit" variant={variant} size={size} className={className} disabled={pending}>
+    <Button type="submit" variant={variant} size={size} className={className} disabled={disabled || pending}>
       {pending ? (
         <>
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

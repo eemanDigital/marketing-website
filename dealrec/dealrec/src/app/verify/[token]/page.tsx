@@ -2,7 +2,8 @@ import Link from "next/link";
 import { CheckCircle2, FileText, ShieldAlert, ShieldCheck } from "lucide-react";
 import { db } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { EVENT, WITNESS_STATUS, WITNESS_STATUS_LABEL } from "@/lib/constants";
+import { DOCUMENT_TYPE, EVENT, WITNESS_STATUS, WITNESS_STATUS_LABEL } from "@/lib/constants";
+import type { VerifiableArtifact } from "@/lib/verify";
 import { Logo } from "@/components/ui/logo";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -44,11 +45,15 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
       })
     : [];
 
+  const isHash = (value: unknown): value is string =>
+    typeof value === "string" && /^[a-f0-9]{64}$/i.test(value);
+
   const packFingerprints: {
     id: string;
     createdAt: Date;
     zipSha256: string;
     fileCount: number | null;
+    files: { name: string; sha256: string }[];
   }[] = [];
   for (const event of evidencePacks) {
     try {
@@ -56,9 +61,17 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
         zipSha256?: unknown;
         files?: unknown;
       };
-      if (typeof metadata.zipSha256 !== "string") continue;
+      if (!isHash(metadata.zipSha256)) continue;
+      const files = Array.isArray(metadata.files)
+        ? metadata.files.flatMap((item): { name: string; sha256: string }[] => {
+            if (!item || typeof item !== "object") return [];
+            const file = item as Record<string, unknown>;
+            if (typeof file.name !== "string" || !isHash(file.sha256)) return [];
+            return [{ name: file.name, sha256: file.sha256 }];
+          })
+        : [];
       const fileCount = Array.isArray(metadata.files)
-        ? metadata.files.length
+        ? files.length
         : typeof metadata.files === "number"
           ? metadata.files
           : null;
@@ -67,10 +80,66 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
         createdAt: event.createdAt,
         zipSha256: metadata.zipSha256,
         fileCount,
+        files,
       });
     } catch {
       // Ignore older or malformed evidence pack metadata.
     }
+  }
+
+  const verifiableArtifacts: VerifiableArtifact[] = [];
+  if (seal) {
+    verifiableArtifacts.push({
+      id: "agreement",
+      label: "Executed agreement",
+      group: "Record documents",
+      detail: `Version ${seal.document.versionNumber}`,
+      expectedFingerprint: seal.document.sha256.slice(0, 16),
+    });
+
+    const certificate = seal.deal.documents.find(
+      (document) => document.documentType === DOCUMENT_TYPE.CERTIFICATE,
+    );
+    if (certificate) {
+      verifiableArtifacts.push({
+        id: `document:${certificate.id}`,
+        label: "Certificate of execution",
+        group: "Record documents",
+        detail: `Version ${certificate.versionNumber}`,
+        expectedFingerprint: certificate.sha256.slice(0, 16),
+      });
+    }
+
+    for (const receipt of seal.deal.documents.filter(
+      (document) => document.documentType === DOCUMENT_TYPE.RECEIPT,
+    )) {
+      verifiableArtifacts.push({
+        id: `document:${receipt.id}`,
+        label: `Receipt · ${receipt.originalName ?? "receipt"}`,
+        group: "Record documents",
+        detail: `Version ${receipt.versionNumber}`,
+        expectedFingerprint: receipt.sha256.slice(0, 16),
+      });
+    }
+
+    packFingerprints.forEach((pack, packIndex) => {
+      const group = `Evidence pack · ${formatDateTime(pack.createdAt)}${packIndex === 0 ? " · Latest" : ""}`;
+      verifiableArtifacts.push({
+        id: `evidence-zip:${pack.id}`,
+        label: "Evidence pack ZIP",
+        group,
+        detail: pack.fileCount === null ? undefined : `${pack.fileCount} files`,
+        expectedFingerprint: pack.zipSha256.slice(0, 16),
+      });
+      pack.files.forEach((file, fileIndex) => {
+        verifiableArtifacts.push({
+          id: `evidence-file:${pack.id}:${fileIndex}`,
+          label: file.name,
+          group,
+          expectedFingerprint: file.sha256.slice(0, 16),
+        });
+      });
+    });
   }
 
   return (
@@ -229,13 +298,13 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
               </CardBody>
             </Card>
 
-            <VerifyFileForm identifier={token} />
+            <VerifyFileForm identifier={token} artifacts={verifiableArtifacts} />
 
             {packFingerprints.length > 0 ? (
               <Card>
                 <CardHeader
                   title="Evidence pack fingerprints"
-                  description="Compare the SHA-256 hash of a downloaded evidence ZIP with the fingerprints recorded by dealrec."
+                  description="Compare a downloaded evidence ZIP with the fingerprints recorded by dealrec, or use the comparison tool above."
                 />
                 <CardBody className="space-y-3">
                   {packFingerprints.map((pack, index) => (
@@ -263,7 +332,7 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
               <CardHeader title="What this result means" />
               <CardBody className="space-y-2 text-[11px] leading-5 text-ink-500">
                 <p className="flex gap-2"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />The seal confirms that dealrec recorded this executed document, version and party set.</p>
-                <p className="flex gap-2"><FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />Use the file comparison above to check whether a copy you hold is byte-for-byte identical.</p>
+                <p className="flex gap-2"><FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />Use the file comparison above to check whether a copy of any recorded file is byte-for-byte identical.</p>
                 <p className="flex gap-2"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />A valid seal is not legal advice or a government certification, and does not guarantee payment, recovery, enforceability or admissibility. Contact a qualified Nigerian legal practitioner for legal questions.</p>
               </CardBody>
             </Card>
