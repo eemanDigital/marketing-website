@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Ban, Pencil } from "lucide-react";
 import { editCommentAction, retractCommentAction } from "@/server/actions/deals";
 import { buttonStyles } from "@/components/ui/button";
@@ -29,13 +29,16 @@ export function CommentActions({
   const [editState, editAction] = useActionState(editCommentAction, null);
   const [retractState, retractAction] = useActionState(retractCommentAction, null);
 
-  useEffect(() => {
+  const [lastEditState, setLastEditState] = useState(editState);
+  if (editState !== lastEditState) {
+    setLastEditState(editState);
     if (editState?.success) setMode(null);
-  }, [editState]);
-
-  useEffect(() => {
+  }
+  const [lastRetractState, setLastRetractState] = useState(retractState);
+  if (retractState !== lastRetractState) {
+    setLastRetractState(retractState);
     if (retractState?.success) setMode(null);
-  }, [retractState]);
+  }
 
   if (!canManage) return null;
 

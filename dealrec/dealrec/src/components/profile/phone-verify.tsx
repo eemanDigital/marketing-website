@@ -15,7 +15,7 @@ export function PhoneVerify({ hasPhone }: { hasPhone: boolean }) {
   const [pending, startTransition] = useTransition();
 
   if (!hasPhone) {
-    return <p className="text-[12px] text-ink-500">Add and save a phone number first.</p>;
+    return <p className="text-[12px] text-ink-subtle">Add and save a phone number first.</p>;
   }
 
   function send() {

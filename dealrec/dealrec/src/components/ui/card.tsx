@@ -11,7 +11,7 @@ export function Card({
   as?: "div" | "section" | "article";
 }) {
   return (
-    <Tag className={cn("rounded-2xl border border-ink-200 bg-white shadow-[0_1px_2px_rgba(16,24,20,0.04)]", className)}>
+    <Tag className={cn("rounded-card bg-surface-raised shadow-[var(--shadow-soft)]", className)}>
       {children}
     </Tag>
   );
@@ -29,16 +29,21 @@ export function CardHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-start justify-between gap-4 border-b border-ink-100 px-4 py-4 sm:px-5", className)}>
+    <div
+      className={cn(
+        "flex flex-col gap-3 px-5 pt-5 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-6",
+        className,
+      )}
+    >
       <div className="min-w-0">
-        <h2 className="text-[15px] font-semibold text-ink-900">{title}</h2>
-        {description ? <p className="mt-0.5 text-[13px] leading-5 text-ink-500">{description}</p> : null}
+        <h2 className="text-[16px] font-bold tracking-tight text-ink">{title}</h2>
+        {description ? <p className="mt-1 text-[13px] leading-5 text-ink-muted">{description}</p> : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="sm:shrink-0">{action}</div> : null}
     </div>
   );
 }
 
 export function CardBody({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("px-4 py-4 sm:px-5", className)}>{children}</div>;
+  return <div className={cn("px-5 pb-5 sm:px-6 sm:pb-6", className)}>{children}</div>;
 }

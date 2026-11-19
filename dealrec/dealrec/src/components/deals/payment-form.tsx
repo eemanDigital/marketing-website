@@ -21,7 +21,7 @@ export function PaymentForm({ dealId }: { dealId: string }) {
     <PreservedForm ref={formRef} action={action} className="space-y-3">
       <input type="hidden" name="dealId" value={dealId} />
       <ActionMessage state={state} />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3">
         <Field label="Amount (NGN)" htmlFor="amount" required>
           <Input id="amount" name="amount" inputMode="decimal" placeholder="e.g. 50000" required />
         </Field>
@@ -40,16 +40,16 @@ export function PaymentForm({ dealId }: { dealId: string }) {
         <Field label="Reference (optional)" htmlFor="reference">
           <Input id="reference" name="reference" placeholder="Bank reference or receipt number" maxLength={120} />
         </Field>
-        <Field label="Notes (optional)" htmlFor="notes" className="sm:col-span-2">
+        <Field label="Notes (optional)" htmlFor="notes">
           <Textarea id="notes" name="notes" placeholder="Any detail the other party should know" maxLength={2000} />
         </Field>
-        <Field label="Receipt or proof (optional)" htmlFor="receipt" className="sm:col-span-2">
+        <Field label="Receipt or proof (optional)" htmlFor="receipt">
           <input
             id="receipt"
             name="receipt"
             type="file"
             accept="application/pdf,image/png,image/jpeg"
-            className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-[12px] text-ink-600 file:mr-2 file:rounded-lg file:border-0 file:bg-ink-100 file:px-3 file:py-1.5 file:text-[12px] file:font-semibold"
+            className="w-full rounded-xl border border-ink-200 bg-surface-raised px-3 py-2 text-[12px] text-ink-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface-muted file:px-3 file:py-1.5 file:text-[12px] file:font-semibold"
           />
         </Field>
       </div>

@@ -28,12 +28,12 @@ export function SignPanel({
 
   if (alreadySigned) {
     return (
-      <Card className="border-brand-200 bg-brand-50">
+      <Card className="border-sky-200 bg-sky-50">
         <CardBody className="flex items-start gap-3">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden />
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-sky-700" aria-hidden />
           <div>
-            <p className="text-[14px] font-bold text-brand-900">You signed version {versionNumber}</p>
-            <p className="mt-0.5 text-[12px] leading-5 text-brand-800/80">
+            <p className="text-[14px] font-bold text-ink">You signed version {versionNumber}</p>
+            <p className="mt-0.5 text-[12px] leading-5 text-ink-muted">
               Your signature is locked to this exact document hash. If the other party requests a
               change, a new version will require a fresh signature.
             </p>
@@ -57,7 +57,7 @@ export function SignPanel({
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <FileSignature className="h-4 w-4 text-brand-600" aria-hidden />
+            <FileSignature className="h-4 w-4 text-violet-600" aria-hidden />
             Sign version {versionNumber}
           </span>
         }
@@ -73,7 +73,7 @@ export function SignPanel({
           </Field>
 
           <div>
-            <p className="mb-1.5 text-sm font-semibold text-ink-800">Your signature</p>
+            <p className="mb-1.5 text-sm font-semibold text-ink">Your signature</p>
             <SignatureField fullName={defaultName} />
           </div>
 

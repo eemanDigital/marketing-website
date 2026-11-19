@@ -19,8 +19,8 @@ export default async function ProfilePage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">Profile & security</h1>
-        <p className="mt-1 text-[13px] text-ink-500">
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Profile & security</h1>
+        <p className="mt-1 text-[13px] text-ink-subtle">
           Keep your contact details accurate. They appear on deals you create and help verify signing.
         </p>
       </div>
@@ -39,24 +39,24 @@ export default async function ProfilePage() {
             <CardBody className="space-y-4">
               <div className="flex items-start justify-between gap-3 rounded-xl border border-ink-100 p-3">
                 <div className="flex gap-3">
-                  <MailCheck className="mt-0.5 h-4 w-4 text-ink-500" aria-hidden />
+                  <MailCheck className="mt-0.5 h-4 w-4 text-ink-subtle" aria-hidden />
                   <div>
-                    <p className="text-[12px] font-semibold text-ink-800">Email</p>
-                    <p className="text-[11px] text-ink-500">{user.email}</p>
+                    <p className="text-[12px] font-semibold text-ink">Email</p>
+                    <p className="text-[11px] text-ink-subtle">{user.email}</p>
                   </div>
                 </div>
                 {user.emailVerifiedAt ? <Badge tone="success">Verified</Badge> : (
-                  <Link href="/verify-account" className="text-[11px] font-semibold text-brand-700">Verify</Link>
+                  <Link href="/verify-account" className="text-[11px] font-semibold text-violet-700">Verify</Link>
                 )}
               </div>
 
               <div className="rounded-xl border border-ink-100 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex gap-3">
-                    <Smartphone className="mt-0.5 h-4 w-4 text-ink-500" aria-hidden />
+                    <Smartphone className="mt-0.5 h-4 w-4 text-ink-subtle" aria-hidden />
                     <div>
-                      <p className="text-[12px] font-semibold text-ink-800">Phone</p>
-                      <p className="text-[11px] text-ink-500">
+                      <p className="text-[12px] font-semibold text-ink">Phone</p>
+                      <p className="text-[11px] text-ink-subtle">
                         {user.phoneNumber ? maskPhone(user.phoneNumber) : "Not added"}
                       </p>
                     </div>
@@ -68,7 +68,7 @@ export default async function ProfilePage() {
                 </div>
               </div>
 
-              <p className="text-[10px] leading-4 text-ink-400">
+              <p className="text-[10px] leading-4 text-ink-subtle">
                 Verification proves control of the contact at that time. It is not a national identity
                 verification or a guarantee that the person is who they claim to be.
               </p>
@@ -81,10 +81,10 @@ export default async function ProfilePage() {
               {sessions.slice(0, 5).map((session) => (
                 <div key={session.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink-100 px-3 py-2">
                   <div>
-                    <p className="text-[11px] font-semibold text-ink-800">
+                    <p className="text-[11px] font-semibold text-ink">
                       {session.ipAddress ?? "Unknown IP"}
                     </p>
-                    <p className="text-[10px] text-ink-400">{formatDateTime(session.createdAt)}</p>
+                    <p className="text-[10px] text-ink-subtle">{formatDateTime(session.createdAt)}</p>
                   </div>
                   <Badge tone="neutral">Active</Badge>
                 </div>
@@ -107,11 +107,11 @@ export default async function ProfilePage() {
       </Alert>
 
       <Card>
-        <CardBody className="flex flex-wrap items-center gap-3 text-[12px] text-ink-500">
-          <ShieldCheck className="h-4 w-4 text-brand-600" aria-hidden />
-          Signed in as <span className="font-semibold text-ink-800">{user.fullName}</span>
-          {user.isAdmin ? <Badge tone="brand"><BadgeCheck className="h-3 w-3" aria-hidden /> Admin</Badge> : null}
-          {user.isAdmin ? <Link href="/admin" className="font-semibold text-brand-700">Open admin</Link> : null}
+        <CardBody className="flex flex-wrap items-center gap-3 text-[12px] text-ink-subtle">
+          <ShieldCheck className="h-4 w-4 text-violet-600" aria-hidden />
+          Signed in as <span className="font-semibold text-ink">{user.fullName}</span>
+          {user.isAdmin ? <Badge tone="violet"><BadgeCheck className="h-3 w-3" aria-hidden /> Admin</Badge> : null}
+          {user.isAdmin ? <Link href="/admin" className="font-semibold text-violet-700">Open admin</Link> : null}
         </CardBody>
       </Card>
     </div>

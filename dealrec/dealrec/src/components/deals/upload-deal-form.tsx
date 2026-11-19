@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileUp } from "lucide-react";
+import { ArrowLeft, FileUp, ListChecks, Users } from "lucide-react";
 import { createUploadedDealAction } from "@/server/actions/deals";
 import { Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -16,34 +16,87 @@ export function UploadDealForm() {
 
   return (
     <PreservedForm action={action} className="space-y-4">
-      <Link href="/deals/new" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-500 hover:text-ink-800">
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+      <Link
+        href="/deals/new"
+        className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-muted hover:text-ink"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
         Back to templates
       </Link>
 
       <ActionMessage state={state} />
 
+      <div className="flex flex-wrap items-center gap-2 text-[12px] font-medium text-ink-muted">
+        <span className="inline-flex items-center gap-1.5 rounded-pill bg-violet-100 px-3 py-1 text-violet-700">
+          <Users className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> 1. Basics
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-raised px-3 py-1 shadow-[var(--shadow-soft)]">
+          <FileUp className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> 2. Upload PDF
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-raised px-3 py-1 shadow-[var(--shadow-soft)]">
+          <ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> 3. Review &amp; create
+        </span>
+      </div>
+
       <Card>
-        <CardHeader title="Deal basics" description="These details appear on the deal record and certificate." />
+        <CardHeader
+          title="Deal basics"
+          description="These details appear on the deal record and certificate."
+        />
         <CardBody className="grid gap-4 sm:grid-cols-2">
           <Field label="Deal title" htmlFor="title" required className="sm:col-span-2">
-            <Input id="title" name="title" placeholder="e.g. Equipment supply agreement" required minLength={3} maxLength={160} />
+            <Input
+              id="title"
+              name="title"
+              placeholder="e.g. Equipment supply agreement"
+              required
+              minLength={3}
+              maxLength={160}
+            />
           </Field>
           <Field label="Your role" htmlFor="creatorRole">
             <Input id="creatorRole" name="creatorRole" defaultValue="Party A" maxLength={80} />
           </Field>
           <Field label="Their role" htmlFor="counterpartyRole">
-            <Input id="counterpartyRole" name="counterpartyRole" defaultValue="Party B" maxLength={80} />
+            <Input
+              id="counterpartyRole"
+              name="counterpartyRole"
+              defaultValue="Party B"
+              maxLength={80}
+            />
           </Field>
-          <Field label="Total amount (NGN, optional)" htmlFor="totalAmount" hint="Used to track payments. Leave blank if not a money deal.">
+          <Field
+            label="Total amount (NGN, optional)"
+            htmlFor="totalAmount"
+            hint="Used to track payments. Leave blank if not a money deal."
+          >
             <Input id="totalAmount" name="totalAmount" inputMode="decimal" placeholder="e.g. 250000" />
           </Field>
           <div />
           <Field label="Other party's full name" htmlFor="counterpartyName" required>
-            <Input id="counterpartyName" name="counterpartyName" placeholder="Their full name" required minLength={2} maxLength={120} />
+            <Input
+              id="counterpartyName"
+              name="counterpartyName"
+              placeholder="Their full name"
+              required
+              minLength={2}
+              maxLength={120}
+            />
           </Field>
-          <Field label="Other party's email" htmlFor="counterpartyEmail" required hint="The signing link and codes go here.">
-            <Input id="counterpartyEmail" name="counterpartyEmail" type="email" inputMode="email" placeholder="them@example.com" required />
+          <Field
+            label="Other party's email"
+            htmlFor="counterpartyEmail"
+            required
+            hint="The signing link and codes go here."
+          >
+            <Input
+              id="counterpartyEmail"
+              name="counterpartyEmail"
+              type="email"
+              inputMode="email"
+              placeholder="them@example.com"
+              required
+            />
           </Field>
           <Field label="Other party's phone (optional)" htmlFor="counterpartyPhone" className="sm:col-span-2">
             <Input id="counterpartyPhone" name="counterpartyPhone" inputMode="tel" placeholder="08012345678" />
@@ -56,13 +109,13 @@ export function UploadDealForm() {
         <CardBody>
           <label
             htmlFor="file"
-            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-300 bg-ink-50 px-6 py-10 text-center hover:border-brand-400 hover:bg-brand-50/50"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-[20px] bg-surface-muted px-6 py-10 text-center ring-1 ring-inset ring-ink-200/50 transition-colors hover:bg-violet-50 hover:ring-violet-200"
           >
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white">
-              <FileUp className="h-5 w-5" aria-hidden />
+            <span className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-violet-600 text-white shadow-[var(--shadow-soft)]">
+              <FileUp className="h-5 w-5" strokeWidth={1.5} aria-hidden />
             </span>
-            <span className="mt-3 text-[14px] font-semibold text-ink-800">Choose a PDF agreement</span>
-            <span className="mt-1 text-[12px] text-ink-500">The file is stored privately and hashed.</span>
+            <span className="mt-3 text-[14px] font-semibold text-ink">Choose a PDF agreement</span>
+            <span className="mt-1 text-[12px] text-ink-muted">The file is stored privately and hashed.</span>
             <input id="file" name="file" type="file" accept="application/pdf,.pdf" required className="sr-only" />
           </label>
         </CardBody>
@@ -76,11 +129,13 @@ export function UploadDealForm() {
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Link
           href="/deals/new"
-          className="inline-flex h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-semibold text-ink-800"
+          className="inline-flex h-11 items-center justify-center rounded-pill bg-surface-raised px-5 text-[13px] font-semibold text-ink shadow-[var(--shadow-soft)] hover:bg-surface"
         >
           Cancel
         </Link>
-        <SubmitButton pending={pending} pendingLabel="Uploading...">Create and continue</SubmitButton>
+        <SubmitButton pending={pending} pendingLabel="Uploading...">
+          Create and continue
+        </SubmitButton>
       </div>
     </PreservedForm>
   );

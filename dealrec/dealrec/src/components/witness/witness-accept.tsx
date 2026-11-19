@@ -32,7 +32,7 @@ export function WitnessAccept({
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <Handshake className="h-4 w-4 text-brand-600" aria-hidden />
+            <Handshake className="h-4 w-4 text-violet-600" aria-hidden />
             Accept witness invitation
           </span>
         }

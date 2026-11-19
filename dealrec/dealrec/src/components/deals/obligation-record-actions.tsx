@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Ban, Pencil } from "lucide-react";
 import {
   cancelObligationAction,
@@ -47,13 +47,16 @@ export function ObligationRecordActions({
   const [cancelState, cancelAction] = useActionState(cancelObligationAction, null);
   const cancelled = obligation.status === OBLIGATION_STATUS.CANCELLED;
 
-  useEffect(() => {
+  const [lastEditState, setLastEditState] = useState(editState);
+  if (editState !== lastEditState) {
+    setLastEditState(editState);
     if (editState?.success) setMode(null);
-  }, [editState]);
-
-  useEffect(() => {
+  }
+  const [lastCancelState, setLastCancelState] = useState(cancelState);
+  if (cancelState !== lastCancelState) {
+    setLastCancelState(cancelState);
     if (cancelState?.success) setMode(null);
-  }, [cancelState]);
+  }
 
   if (isClosed) return null;
 
@@ -94,7 +97,7 @@ export function ObligationRecordActions({
               <button
                 type="button"
                 onClick={() => setMode(mode === "cancel" ? null : "cancel")}
-                className={buttonStyles({ variant: "ghost", size: "sm", className: "text-red-700 hover:bg-red-50" })}
+                className={buttonStyles({ variant: "ghost", size: "sm", className: "text-danger-700 hover:bg-danger-50" })}
               >
                 <Ban className="h-3.5 w-3.5" aria-hidden />
                 Cancel
@@ -109,12 +112,12 @@ export function ObligationRecordActions({
       <ActionMessage state={cancelState} />
 
       {mode === "edit" ? (
-        <PreservedForm action={editAction} className="mt-3 space-y-3 rounded-xl border border-ink-200 bg-white p-3">
+        <PreservedForm action={editAction} className="mt-3 space-y-3 rounded-xl border border-ink-200 bg-surface-raised p-3">
           <input type="hidden" name="dealId" value={dealId} />
           <input type="hidden" name="obligationId" value={obligation.id} />
           <input type="hidden" name="revision" value={obligation.revision} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Obligation" htmlFor={`edit-obligation-title-${obligation.id}`} required className="sm:col-span-2">
+          <div className="grid gap-3">
+            <Field label="Obligation" htmlFor={`edit-obligation-title-${obligation.id}`} required>
               <Input
                 id={`edit-obligation-title-${obligation.id}`}
                 name="title"
@@ -142,7 +145,6 @@ export function ObligationRecordActions({
             <Field
               label="Responsible party (optional)"
               htmlFor={`edit-obligation-party-${obligation.id}`}
-              className="sm:col-span-2"
             >
               <Select
                 id={`edit-obligation-party-${obligation.id}`}
@@ -160,7 +162,6 @@ export function ObligationRecordActions({
             <Field
               label="Details (optional)"
               htmlFor={`edit-obligation-description-${obligation.id}`}
-              className="sm:col-span-2"
             >
               <Textarea
                 id={`edit-obligation-description-${obligation.id}`}
@@ -173,7 +174,6 @@ export function ObligationRecordActions({
               label="Reason for editing"
               htmlFor={`edit-obligation-reason-${obligation.id}`}
               required
-              className="sm:col-span-2"
               hint="Required. Both parties see this reason and the previous values remain in the audit log."
             >
               <Textarea
@@ -206,7 +206,7 @@ export function ObligationRecordActions({
       ) : null}
 
       {mode === "cancel" ? (
-        <PreservedForm action={cancelAction} className="mt-3 space-y-3 rounded-xl border border-red-200 bg-red-50/50 p-3">
+        <PreservedForm action={cancelAction} className="mt-3 space-y-3 rounded-xl border border-danger-200 bg-danger-50/60 p-3">
           <input type="hidden" name="dealId" value={dealId} />
           <input type="hidden" name="obligationId" value={obligation.id} />
           <input type="hidden" name="revision" value={obligation.revision} />

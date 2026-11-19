@@ -24,8 +24,8 @@ export default async function NotificationsPage() {
     <div className="mx-auto max-w-3xl space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">Notifications</h1>
-          <p className="mt-1 text-[13px] text-ink-500">
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink">Notifications</h1>
+          <p className="mt-1 text-[13px] text-ink-subtle">
             {unread > 0 ? `${unread} unread` : "You are all caught up."}
           </p>
         </div>
@@ -50,33 +50,33 @@ export default async function NotificationsPage() {
           {notifications.map((notification) => (
             <Card
               key={notification.id}
-              className={notification.readAt ? "opacity-80" : "border-brand-200"}
+              className={notification.readAt ? "opacity-80" : "border-violet-200"}
             >
               <CardBody className="flex items-start gap-3">
-                <span className="mt-1 text-brand-600">
+                <span className="mt-1 text-violet-600">
                   {notification.readAt ? (
                     <Circle className="h-2.5 w-2.5" aria-hidden />
                   ) : (
-                    <Circle className="h-2.5 w-2.5 fill-brand-600" aria-hidden />
+                    <Circle className="h-2.5 w-2.5 fill-violet-600" aria-hidden />
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-[13px] font-bold text-ink-900">{notification.title}</p>
-                    {!notification.readAt ? <Badge tone="brand">New</Badge> : null}
+                    <p className="text-[13px] font-bold text-ink">{notification.title}</p>
+                    {!notification.readAt ? <Badge tone="violet">New</Badge> : null}
                   </div>
-                  <p className="mt-0.5 text-[12px] leading-5 text-ink-600">{notification.body}</p>
-                  <p className="mt-1 text-[10px] text-ink-400">{formatDateTime(notification.createdAt)}</p>
+                  <p className="mt-0.5 text-[12px] leading-5 text-ink-muted">{notification.body}</p>
+                  <p className="mt-1 text-[10px] text-ink-subtle">{formatDateTime(notification.createdAt)}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     {notification.dealId ? (
-                      <Link href={`/deals/${notification.dealId}`} className="text-[11px] font-semibold text-brand-700">
+                      <Link href={`/deals/${notification.dealId}`} className="text-[11px] font-semibold text-violet-700">
                         Open deal
                       </Link>
                     ) : null}
                     {!notification.readAt ? (
                       <form action={markNotificationReadAction}>
                         <input type="hidden" name="id" value={notification.id} />
-                        <button type="submit" className="text-[11px] font-semibold text-ink-500 hover:text-ink-800">
+                        <button type="submit" className="text-[11px] font-semibold text-ink-subtle hover:text-ink">
                           Mark read
                         </button>
                       </form>

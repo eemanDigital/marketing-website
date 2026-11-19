@@ -27,7 +27,7 @@ export function InviteSign({
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <FileSignature className="h-4 w-4 text-brand-600" aria-hidden />
+            <FileSignature className="h-4 w-4 text-violet-600" aria-hidden />
             Sign version {versionNumber}
           </span>
         }
@@ -41,7 +41,7 @@ export function InviteSign({
             <Input id="signerName" name="signerName" defaultValue={defaultName} maxLength={120} required />
           </Field>
           <div>
-            <p className="mb-1.5 text-sm font-semibold text-ink-800">Your signature</p>
+            <p className="mb-1.5 text-sm font-semibold text-ink">Your signature</p>
             <SignatureField fullName={defaultName} />
           </div>
           <Checkbox

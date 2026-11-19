@@ -1,36 +1,123 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #edfaf4;
-  --color-brand-100: #d3f4e5;
-  --color-brand-200: #a8e8cd;
-  --color-brand-300: #72d6ae;
-  --color-brand-400: #3cbd8c;
-  --color-brand-500: #17a373;
-  --color-brand-600: #0b7a5c;
-  --color-brand-700: #0a624c;
-  --color-brand-800: #0b4e3f;
-  --color-brand-900: #093f35;
-  --color-ink-50: #f7f8f7;
-  --color-ink-100: #eceeec;
-  --color-ink-200: #d9ddd9;
-  --color-ink-300: #b7bfb9;
-  --color-ink-400: #8a958d;
-  --color-ink-500: #667169;
-  --color-ink-600: #4f5a53;
-  --color-ink-700: #3d4640;
-  --color-ink-800: #2b322e;
-  --color-ink-900: #1a1f1c;
-  --color-sand-100: #fbf6ec;
-  --color-sand-200: #f5e9cf;
-  --color-sand-500: #c9942f;
-  --color-sand-700: #8a6416;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Core surfaces */
+  --color-canvas: #e9e4ff;
+  --color-surface: #f6f5f8;
+  --color-surface-raised: #ffffff;
+  --color-surface-muted: #efecfa;
+
+  /* Text */
+  --color-ink: #0f0f14;
+  --color-ink-muted: #6b6675;
+  --color-ink-subtle: #9894a3;
+  --color-ink-inverse: #f6f5f8;
+
+  /* Primary / near-black actions */
+  --color-primary: #0f0f14;
+  --color-primary-hover: #1c1c24;
+  --color-primary-foreground: #ffffff;
+
+  /* Violet – hero, active negotiations, main CTA surfaces */
+  --color-violet-50: #f3efff;
+  --color-violet-100: #e8deff;
+  --color-violet-200: #d5c6ff;
+  --color-violet-300: #bea8ff;
+  --color-violet-500: #7c5cff;
+  --color-violet-600: #6847f5;
+  --color-violet-700: #4328ab;
+
+  /* Amber – pending, awaiting signature / action needed */
+  --color-amber-50: #fff7e8;
+  --color-amber-100: #ffecbf;
+  --color-amber-200: #ffd98a;
+  --color-amber-500: #e89a2e;
+  --color-amber-600: #cf7f14;
+  --color-amber-700: #7a4508;
+
+  /* Sky – verified, hash-matched, sealed records */
+  --color-sky-50: #eaf7ff;
+  --color-sky-100: #d3edff;
+  --color-sky-200: #b3defa;
+  --color-sky-500: #2e97d6;
+  --color-sky-600: #1c7db5;
+  --color-sky-700: #0f4f75;
+
+  /* Pink – shares, exports, certificates, quick actions */
+  --color-pink-50: #fff0f6;
+  --color-pink-100: #ffdced;
+  --color-pink-200: #ffc2de;
+  --color-pink-500: #d95797;
+  --color-pink-600: #bf3f82;
+  --color-pink-700: #7a2452;
+
+  /* Semantic (softened to match pastel system) */
+  --color-success-50: #eafbf2;
+  --color-success-100: #c9f3dd;
+  --color-success-500: #2f9e63;
+  --color-success-600: #237a4c;
+  --color-success-700: #1b5e3a;
+  --color-warning-50: #fff6e6;
+  --color-warning-100: #ffe8b8;
+  --color-warning-500: #d98a1f;
+  --color-warning-600: #b56d12;
+  --color-warning-700: #7a4508;
+  --color-danger-50: #ffeff1;
+  --color-danger-100: #ffd7dc;
+  --color-danger-500: #d64555;
+  --color-danger-600: #b73443;
+  --color-danger-700: #8f2633;
+
+  /* Compatibility aliases (preserve existing utility class behavior during migration) */
+  --color-brand-50: #f3efff;
+  --color-brand-100: #e8deff;
+  --color-brand-200: #d5c6ff;
+  --color-brand-300: #bea8ff;
+  --color-brand-400: #9677ff;
+  --color-brand-500: #7c5cff;
+  --color-brand-600: #6847f5;
+  --color-brand-700: #4328ab;
+  --color-brand-800: #352082;
+  --color-brand-900: #2a1868;
+  --color-ink-50: #f6f5f8;
+  --color-ink-100: #eceaf3;
+  --color-ink-200: #dedae8;
+  --color-ink-300: #c7c2d6;
+  --color-ink-400: #a39db5;
+  --color-ink-500: #6b6675;
+  --color-ink-600: #555160;
+  --color-ink-700: #3f3b4a;
+  --color-ink-800: #262430;
+  --color-ink-900: #0f0f14;
+  --color-sand-100: #fff7e8;
+  --color-sand-200: #ffecbf;
+  --color-sand-500: #e89a2e;
+  --color-sand-700: #7a4508;
+
+  /* Radii */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-card: 28px;
+  --radius-card-lg: 32px;
+  --radius-pill: 9999px;
+
+  /* Shadows (soft, no hard borders) */
+  --shadow-soft: 0 1px 2px rgba(15, 15, 20, 0.04), 0 8px 24px rgba(15, 15, 20, 0.04);
+  --shadow-lift: 0 4px 12px rgba(15, 15, 20, 0.06), 0 16px 32px rgba(15, 15, 20, 0.06);
+  --shadow-nav: 0 8px 24px rgba(15, 15, 20, 0.18);
+
+  /* Typography */
+  --font-sans: var(--font-jakarta), "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 :root {
   color-scheme: light;
+  --focus-ring: 0 0 0 3px rgba(124, 92, 255, 0.35);
 }
 
 html {
@@ -38,14 +125,20 @@ html {
 }
 
 body {
-  background-color: var(--color-ink-50);
-  color: var(--color-ink-900);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
   text-rendering: optimizeLegibility;
 }
 
 ::selection {
-  background: var(--color-brand-200);
+  background: var(--color-violet-200);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 input,
@@ -62,9 +155,10 @@ select {
   }
 }
 
+/* Subtle canvas texture (kept for compatibility, softened) */
 .deal-watermark {
-  background-image: radial-gradient(circle at 1px 1px, rgba(11, 122, 92, 0.12) 1px, transparent 0);
-  background-size: 18px 18px;
+  background-image: radial-gradient(circle at 1px 1px, rgba(124, 92, 255, 0.08) 1px, transparent 0);
+  background-size: 20px 20px;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -73,4 +167,19 @@ select {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.hairline {
+  box-shadow: inset 0 0 0 1px rgba(15, 15, 20, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

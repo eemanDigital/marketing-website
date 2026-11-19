@@ -1,71 +1,90 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { LogOut } from "lucide-react";
-import { Logo } from "./ui/logo";
-import { Avatar } from "./ui/avatar";
-import { DesktopNav, MobileNav } from "./app-nav";
+import { LogOut, ShieldAlert } from "lucide-react";
+import { DesktopRail, MobileBottomNav, MobileHeader } from "./app-nav";
 import type { SessionUser } from "@/lib/auth";
 import { signOutAction } from "@/server/actions/auth";
+import { formatDate } from "@/lib/utils";
 
 export function AppShell({
   user,
   unread = 0,
   children,
+  rightPanel,
 }: {
   user: SessionUser;
   unread?: number;
   children: ReactNode;
+  rightPanel?: ReactNode;
 }) {
+  const firstName = user.fullName.split(" ")[0] || user.fullName;
+  const today = formatDate(new Date());
+
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Logo />
-          <div className="flex items-center gap-2">
-            <DesktopNav unread={unread} />
-            <Link
-              href="/profile"
-              className="hidden items-center gap-2 rounded-full border border-ink-200 py-1 pl-1 pr-3 md:flex"
-            >
-              <Avatar name={user.fullName} size="sm" />
-              <span className="max-w-28 truncate text-[13px] font-semibold text-ink-800">
-                {user.fullName.split(" ")[0]}
-              </span>
-            </Link>
-            <form action={signOutAction} className="md:hidden">
-              <button
-                type="submit"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-ink-500 hover:bg-ink-100"
-                aria-label="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </form>
-            <form action={signOutAction} className="hidden md:block">
-              <button
-                type="submit"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-ink-500 hover:bg-ink-100"
-                aria-label="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-dvh bg-canvas text-ink">
+      <DesktopRail unread={unread} />
 
-      {!user.emailVerifiedAt ? (
-        <div className="border-b border-sand-200 bg-sand-100 px-4 py-2 text-center text-[12px] font-medium text-sand-700">
-          Your email is not verified.{" "}
-          <Link href="/verify-account" className="underline">
-            Verify now
-          </Link>{" "}
-          to create and sign deals.
-        </div>
-      ) : null}
+      <MobileHeader name={firstName} subtitle={today} />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-5 sm:px-6 md:pb-12">{children}</main>
-      <MobileNav unread={unread} />
+      <div className="mx-auto flex w-full max-w-[1280px] gap-6 px-4 pb-32 pt-2 sm:px-6 lg:px-8 lg:pb-10 lg:pl-[120px] lg:pt-8">
+        <div className="min-w-0 flex-1">
+          <header className="mb-6 hidden items-start justify-between gap-4 lg:flex">
+            <div>
+              <p className="text-[13px] font-medium text-ink-muted">Hello, {firstName}</p>
+              <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.03em] text-ink">
+                Welcome back
+              </h1>
+              <p className="mt-0.5 text-[13px] text-ink-muted">{today} · WAT</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/notifications"
+                className="relative inline-flex h-11 items-center justify-center rounded-pill bg-surface-raised px-4 text-[13px] font-semibold text-ink shadow-[var(--shadow-soft)] hover:bg-surface"
+              >
+                Notifications
+                {unread > 0 ? (
+                  <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                ) : null}
+              </Link>
+              <form action={signOutAction}>
+                <button
+                  type="submit"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-surface-raised text-ink-muted shadow-[var(--shadow-soft)] hover:text-ink"
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4.5 w-4.5" strokeWidth={1.5} aria-hidden />
+                </button>
+              </form>
+            </div>
+          </header>
+
+          {!user.emailVerifiedAt ? (
+            <div className="mb-4 flex items-start gap-3 rounded-card bg-amber-100 px-4 py-3 text-[13px] text-amber-700">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden />
+              <p>
+                Your email is not verified.{" "}
+                <Link href="/verify-account" className="font-semibold underline underline-offset-2">
+                  Verify now
+                </Link>{" "}
+                to create and sign agreements.
+              </p>
+            </div>
+          ) : null}
+
+          <main className="min-w-0">{children}</main>
+        </div>
+
+        {rightPanel ? (
+          <aside className="hidden w-[320px] shrink-0 xl:block">
+            <div className="sticky top-8 space-y-4">{rightPanel}</div>
+          </aside>
+        ) : null}
+      </div>
+
+      <MobileBottomNav unread={unread} />
     </div>
   );
 }

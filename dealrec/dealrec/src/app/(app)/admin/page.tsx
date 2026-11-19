@@ -50,8 +50,8 @@ export default async function AdminPage() {
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-ink-900">Admin</h1>
-          <p className="mt-1 text-[13px] text-ink-500">Operational overview and trust actions.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink">Admin</h1>
+          <p className="mt-1 text-[13px] text-ink-subtle">Operational overview and trust actions.</p>
         </div>
         <Link href="/dashboard" className={buttonStyles({ variant: "outline", size: "sm" })}>
           Back to app
@@ -74,9 +74,9 @@ export default async function AdminPage() {
           const Icon = stat.icon;
           return (
             <Card key={stat.label} className="p-4">
-              <Icon className="h-4 w-4 text-ink-400" aria-hidden />
-              <p className="mt-2 text-lg font-extrabold text-ink-900">{stat.value}</p>
-              <p className="text-[11px] font-medium text-ink-500">{stat.label}</p>
+              <Icon className="h-4 w-4 text-ink-subtle" aria-hidden />
+              <p className="mt-2 text-lg font-extrabold text-ink">{stat.value}</p>
+              <p className="text-[11px] font-medium text-ink-subtle">{stat.label}</p>
             </Card>
           );
         })}
@@ -92,11 +92,11 @@ export default async function AdminPage() {
                   <div className="flex min-w-0 gap-3">
                     <Avatar name={user.fullName} size="sm" />
                     <div className="min-w-0">
-                      <p className="truncate text-[12px] font-semibold text-ink-900">
+                      <p className="truncate text-[12px] font-semibold text-ink">
                         {user.fullName} {user.isAdmin ? "(admin)" : ""}
                       </p>
-                      <p className="truncate text-[11px] text-ink-500">{user.email}</p>
-                      <p className="text-[10px] text-ink-400">
+                      <p className="truncate text-[11px] text-ink-subtle">{user.email}</p>
+                      <p className="text-[10px] text-ink-subtle">
                         Joined {formatDateTime(user.createdAt)} · {user.emailVerifiedAt ? "email verified" : "email unverified"}
                       </p>
                     </div>
@@ -124,11 +124,11 @@ export default async function AdminPage() {
                 <div key={deal.id} className="rounded-xl border border-ink-100 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <Link href={`/deals/${deal.id}`} className="truncate text-[12px] font-semibold text-brand-700">
+                      <Link href={`/deals/${deal.id}`} className="truncate text-[12px] font-semibold text-violet-700">
                         {deal.title}
                       </Link>
-                      <p className="font-mono text-[10px] text-ink-500">{deal.reference}</p>
-                      <p className="text-[10px] text-ink-400">
+                      <p className="font-mono text-[10px] text-ink-subtle">{deal.reference}</p>
+                      <p className="text-[10px] text-ink-subtle">
                         {deal.creator.fullName} · {formatDateTime(deal.updatedAt)}
                       </p>
                     </div>
@@ -138,8 +138,8 @@ export default async function AdminPage() {
                   </div>
 
                   {seal ? (
-                    <div className="mt-2 rounded-lg bg-ink-50 p-2">
-                      <p className="font-mono text-[10px] text-ink-600">
+                    <div className="mt-2 rounded-lg bg-surface-muted p-2">
+                      <p className="font-mono text-[10px] text-ink-muted">
                         Seal {seal.serialNumber} · {seal.status}
                       </p>
                       {seal.status === "ACTIVE" ? (
@@ -170,15 +170,15 @@ export default async function AdminPage() {
         <CardHeader title="Recent admin audit" description="Who did what, and when." />
         <CardBody className="space-y-2">
           {audits.length === 0 ? (
-            <p className="text-[12px] text-ink-500">No admin actions recorded.</p>
+            <p className="text-[12px] text-ink-subtle">No admin actions recorded.</p>
           ) : (
             audits.map((audit) => (
               <div key={audit.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-100 px-3 py-2 text-[11px]">
-                <span className="font-semibold text-ink-800">{audit.action}</span>
-                <span className="text-ink-500">
+                <span className="font-semibold text-ink">{audit.action}</span>
+                <span className="text-ink-subtle">
                   {audit.actor.fullName} · {audit.targetType} {audit.targetId.slice(0, 8)}
                 </span>
-                <span className="text-ink-400">{formatDateTime(audit.createdAt)}</span>
+                <span className="text-ink-subtle">{formatDateTime(audit.createdAt)}</span>
               </div>
             ))
           )}
@@ -189,7 +189,7 @@ export default async function AdminPage() {
         <CardHeader title="Invitation administration" description="Paste an invitation id from a support report to revoke it." />
         <CardBody>
           <form action={adminRevokeInvitationAction} className="flex flex-wrap items-end gap-2">
-            <label className="min-w-0 flex-1 text-[12px] font-semibold text-ink-700">
+            <label className="min-w-0 flex-1 text-[12px] font-semibold text-ink">
               Invitation ID
               <input
                 name="invitationId"

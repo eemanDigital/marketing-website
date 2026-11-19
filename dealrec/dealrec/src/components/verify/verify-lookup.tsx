@@ -20,7 +20,7 @@ export function VerifyLookup() {
       }}
       className="space-y-3"
     >
-      <label htmlFor="identifier" className="block text-sm font-semibold text-ink-800">
+      <label htmlFor="identifier" className="block text-sm font-semibold text-ink">
         Deal reference or verification code
       </label>
       <Input

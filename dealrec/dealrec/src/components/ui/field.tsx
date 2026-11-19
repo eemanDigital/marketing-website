@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const control =
-  "w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-ink-900 placeholder:text-ink-400 shadow-[0_1px_0_rgba(0,0,0,0.02)] transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:bg-ink-100";
+  "w-full rounded-[16px] border border-ink-200 bg-surface-raised px-4 py-3 text-ink placeholder:text-ink-subtle shadow-[var(--shadow-soft)] transition-colors focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-300/40 disabled:bg-surface-muted";
 
 export function Field({
   label,
@@ -23,15 +23,15 @@ export function Field({
 }) {
   return (
     <div className={cn("space-y-1.5", className)}>
-      <label htmlFor={htmlFor} className="block text-sm font-semibold text-ink-800">
+      <label htmlFor={htmlFor} className="block text-[13px] font-semibold text-ink">
         {label}
-        {required ? <span className="ml-0.5 text-red-600">*</span> : null}
+        {required ? <span className="ml-0.5 text-danger-600">*</span> : null}
       </label>
       {children}
       {error ? (
-        <p className="text-[13px] font-medium text-red-600">{error}</p>
+        <p className="text-[13px] font-medium text-danger-600">{error}</p>
       ) : hint ? (
-        <p className="text-[13px] leading-5 text-ink-500">{hint}</p>
+        <p className="text-[13px] leading-5 text-ink-muted">{hint}</p>
       ) : null}
     </div>
   );
@@ -42,12 +42,12 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
 }
 
 export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
-  return <textarea className={cn(control, "min-h-24 resize-y", className)} {...props} />;
+  return <textarea className={cn(control, "min-h-28 resize-y", className)} {...props} />;
 }
 
 export function Select({ className, children, ...props }: ComponentProps<"select">) {
   return (
-    <select className={cn(control, "appearance-none pr-9", className)} {...props}>
+    <select className={cn(control, "appearance-none pr-10", className)} {...props}>
       {children}
     </select>
   );
@@ -59,13 +59,13 @@ export function Checkbox({
   ...props
 }: ComponentProps<"input"> & { label: ReactNode }) {
   return (
-    <label className={cn("flex items-start gap-3 rounded-xl border border-ink-200 bg-white p-3.5", className)}>
+    <label className={cn("flex items-start gap-3 rounded-[16px] bg-surface-raised p-4 shadow-[var(--shadow-soft)]", className)}>
       <input
         type="checkbox"
-        className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-violet-600 focus:ring-violet-300"
         {...props}
       />
-      <span className="text-[13px] leading-5 text-ink-700">{label}</span>
+      <span className="text-[13px] leading-5 text-ink">{label}</span>
     </label>
   );
 }

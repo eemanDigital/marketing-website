@@ -3,10 +3,10 @@ import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const styles = {
-  info: { wrapper: "border-sky-200 bg-sky-50 text-sky-900", icon: Info, iconClass: "text-sky-600" },
-  success: { wrapper: "border-brand-200 bg-brand-50 text-brand-900", icon: CheckCircle2, iconClass: "text-brand-600" },
-  warning: { wrapper: "border-sand-200 bg-sand-100 text-sand-700", icon: AlertTriangle, iconClass: "text-sand-700" },
-  error: { wrapper: "border-red-200 bg-red-50 text-red-900", icon: XCircle, iconClass: "text-red-600" },
+  info: { wrapper: "bg-sky-50 text-sky-700", icon: Info, iconClass: "text-sky-600" },
+  success: { wrapper: "bg-success-50 text-success-700", icon: CheckCircle2, iconClass: "text-success-600" },
+  warning: { wrapper: "bg-amber-100 text-amber-700", icon: AlertTriangle, iconClass: "text-amber-600" },
+  error: { wrapper: "bg-danger-50 text-danger-700", icon: XCircle, iconClass: "text-danger-600" },
 };
 
 export function Alert({
@@ -23,8 +23,8 @@ export function Alert({
   const style = styles[tone];
   const Icon = style.icon;
   return (
-    <div className={cn("flex gap-3 rounded-xl border p-3.5 text-[13px] leading-5", style.wrapper, className)}>
-      <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", style.iconClass)} aria-hidden />
+    <div className={cn("flex gap-3 rounded-card px-4 py-3 text-[13px] leading-5", style.wrapper, className)}>
+      <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", style.iconClass)} strokeWidth={1.5} aria-hidden />
       <div className="min-w-0">
         {title ? <p className="font-semibold">{title}</p> : null}
         {children ? <div className={title ? "mt-0.5 opacity-90" : ""}>{children}</div> : null}

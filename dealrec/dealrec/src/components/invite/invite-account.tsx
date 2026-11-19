@@ -48,13 +48,13 @@ export function InviteAccount({
 
   if (mode === "linked") {
     return (
-      <Card className="border-brand-200 bg-brand-50">
+      <Card className="border-violet-200 bg-violet-50">
         <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden />
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-violet-700" aria-hidden />
             <div>
-              <p className="text-[13px] font-bold text-brand-900">Linked to your account</p>
-              <p className="mt-0.5 text-[12px] leading-5 text-brand-800/80">
+              <p className="text-[13px] font-bold text-violet-900">Linked to your account</p>
+              <p className="mt-0.5 text-[12px] leading-5 text-violet-700/80">
                 This agreement is already available in your dashboard.
               </p>
             </div>
@@ -77,7 +77,7 @@ export function InviteAccount({
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <Link2 className="h-4 w-4 text-brand-600" aria-hidden />
+            <Link2 className="h-4 w-4 text-violet-600" aria-hidden />
             Keep access to this deal
           </span>
         }
@@ -89,14 +89,14 @@ export function InviteAccount({
         {mode === "signedOut" ? (
           <>
             {!verified ? (
-              <p className="text-[12px] leading-5 text-ink-600">
-                Verify <span className="font-semibold text-ink-800">{contact}</span> above first. You
+              <p className="text-[12px] leading-5 text-ink-muted">
+                Verify <span className="font-semibold text-ink">{contact}</span> above first. You
                 can review and sign with this link, then create an account here without another code.
               </p>
             ) : emailAccountReady ? (
               emailAccountExists ? (
                 <div className="space-y-3">
-                  <p className="text-[12px] leading-5 text-ink-600">
+                  <p className="text-[12px] leading-5 text-ink-muted">
                     This email already has a dealrec account. Sign in and we will link this deal
                     automatically.
                   </p>
@@ -110,7 +110,7 @@ export function InviteAccount({
               ) : (
                 <PreservedForm action={createAction} className="space-y-3">
                   <input type="hidden" name="token" value={token} />
-                  <p className="text-[12px] leading-5 text-ink-600">
+                  <p className="text-[12px] leading-5 text-ink-muted">
                     Your email is already verified by this invitation. Set a password to save this
                     deal to your account.
                   </p>
@@ -152,9 +152,9 @@ export function InviteAccount({
                   <SubmitButton className="w-full" pendingLabel="Creating account...">
                     Create account and continue
                   </SubmitButton>
-                  <p className="text-[11px] leading-5 text-ink-500">
+                  <p className="text-[11px] leading-5 text-ink-subtle">
                     Already have an account with this email?{" "}
-                    <Link href={signInHref} className="font-semibold text-brand-700 hover:underline">
+                    <Link href={signInHref} className="font-semibold text-violet-700 hover:underline">
                       Sign in
                     </Link>
                   </p>
@@ -162,9 +162,9 @@ export function InviteAccount({
               )
             ) : (
               <>
-                <p className="text-[12px] leading-5 text-ink-600">
+                <p className="text-[12px] leading-5 text-ink-muted">
                   Sign in or create an account using{" "}
-                  <span className="font-semibold text-ink-800">{contact}</span>. Once that contact is
+                  <span className="font-semibold text-ink">{contact}</span>. Once that contact is
                   verified, this deal is added to your dashboard automatically.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -177,7 +177,7 @@ export function InviteAccount({
                     Create an account
                   </Link>
                 </div>
-                <p className="text-[11px] leading-5 text-ink-500">
+                <p className="text-[11px] leading-5 text-ink-subtle">
                   Use the same email or phone this invitation was sent to. You will return here after
                   signing in.
                 </p>
@@ -188,7 +188,7 @@ export function InviteAccount({
 
         {mode === "claimable" ? (
           <>
-            <p className="text-[12px] leading-5 text-ink-600">
+            <p className="text-[12px] leading-5 text-ink-muted">
               Your verified account contact matches this invitation. Link it now to open the deal from
               your workspace.
             </p>
@@ -203,7 +203,7 @@ export function InviteAccount({
         ) : null}
 
         {mode === "linkedOther" ? (
-          <p className="text-[12px] leading-5 text-ink-600">
+          <p className="text-[12px] leading-5 text-ink-muted">
             This invitation is already linked to another dealrec account. Sign in with the account that
             claimed it to manage the deal.
           </p>
@@ -211,9 +211,9 @@ export function InviteAccount({
 
         {mode === "mismatch" ? (
           <>
-            <p className="text-[12px] leading-5 text-ink-600">
+            <p className="text-[12px] leading-5 text-ink-muted">
               Your current account does not have the verified email or phone this invitation was sent to
-              (<span className="font-semibold text-ink-800">{contact}</span>). Add and verify that contact
+              (<span className="font-semibold text-ink">{contact}</span>). Add and verify that contact
               in your profile, or sign in with the matching account.
             </p>
             <Link href="/profile" className={buttonStyles({ variant: "outline", size: "sm" })}>

@@ -51,14 +51,14 @@ function WitnessRow({ dealId, witness }: { dealId: string; witness: WitnessView 
   const [resendState, resendAction] = useActionState(resendWitnessAction, null);
 
   return (
-    <div className="rounded-xl border border-ink-100 p-3">
+    <div className="rounded-xl border border-ink-100 bg-surface-muted/30 p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[12px] font-bold text-ink-900">{witness.fullName}</p>
-          <p className="text-[11px] text-ink-500">
+          <p className="text-[12px] font-bold text-ink">{witness.fullName}</p>
+          <p className="text-[11px] text-ink-muted">
             Witness for {witness.witnessedPartyName} · opens {witness.openCount}
           </p>
-          <p className="text-[10px] text-ink-400">
+          <p className="text-[10px] text-ink-subtle">
             Expires {witness.expiresLabel}
             {witness.acceptedLabel ? ` · Accepted ${witness.acceptedLabel}` : ""}
             {witness.attestedLabel ? ` · Attested ${witness.attestedLabel}` : ""}
@@ -74,8 +74,8 @@ function WitnessRow({ dealId, witness }: { dealId: string; witness: WitnessView 
         <ActionMessage state={revokeState} />
         <ActionMessage state={resendState} />
         {resendState?.url ? (
-          <div className="rounded-lg border border-brand-200 bg-brand-50 p-2">
-            <p className="break-all font-mono text-[10px] text-brand-800">{resendState.url}</p>
+          <div className="rounded-lg border border-violet-200 bg-violet-50 p-2">
+            <p className="break-all font-mono text-[10px] text-violet-700">{resendState.url}</p>
             <CopyButton value={resendState.url} className="mt-1" />
           </div>
         ) : null}
@@ -134,7 +134,7 @@ export function WitnessPanel({
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-brand-600" aria-hidden />
+            <ShieldCheck className="h-4 w-4 text-violet-600" aria-hidden />
             Witnesses
           </span>
         }
@@ -142,7 +142,7 @@ export function WitnessPanel({
       />
       <CardBody className="space-y-3">
         {witnesses.length === 0 ? (
-          <p className="text-[12px] text-ink-500">No witnesses for the current version yet.</p>
+          <p className="text-[12px] text-ink-muted">No witnesses for the current version yet.</p>
         ) : (
           witnesses.map((witness) => (
             <WitnessRow key={witness.id} dealId={dealId} witness={witness} />
@@ -150,9 +150,9 @@ export function WitnessPanel({
         )}
 
         {addState?.url ? (
-          <div className="rounded-xl border border-brand-200 bg-brand-50 p-3">
-            <p className="text-[11px] font-bold text-brand-900">Witness link</p>
-            <p className="mt-1 break-all font-mono text-[10px] text-brand-800">{addState.url}</p>
+          <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+            <p className="text-[11px] font-bold text-violet-900">Witness link</p>
+            <p className="mt-1 break-all font-mono text-[10px] text-violet-700">{addState.url}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <CopyButton value={addState.url} />
               <a
@@ -165,7 +165,7 @@ export function WitnessPanel({
                 Open link
               </a>
             </div>
-            <p className="mt-2 text-[10px] leading-4 text-brand-800/70">
+            <p className="mt-2 text-[10px] leading-4 text-violet-700/80">
               This link is only shown in this response. The witness still needs a one-time code sent to
               the contact recorded above.
             </p>
@@ -174,16 +174,16 @@ export function WitnessPanel({
         <ActionMessage state={addState} />
 
         {disabled ? (
-          <p className="text-[11px] text-ink-500">Witnesses are locked after execution or closing.</p>
+          <p className="text-[11px] text-ink-muted">Witnesses are locked after execution or closing.</p>
         ) : addableParties.length === 0 ? (
-          <p className="text-[11px] text-ink-500">
+          <p className="text-[11px] text-ink-muted">
             Each party can have one witness for this version. Revoke or create a new version to change
             a witness.
           </p>
         ) : (
-          <PreservedForm action={addAction} className="space-y-3 rounded-xl border border-ink-100 p-3">
+          <PreservedForm action={addAction} className="space-y-3 rounded-xl border border-ink-100 bg-surface-muted/30 p-3">
             <input type="hidden" name="dealId" value={dealId} />
-            <p className="inline-flex items-center gap-2 text-[12px] font-bold text-ink-900">
+            <p className="inline-flex items-center gap-2 text-[12px] font-bold text-ink">
               <UserPlus className="h-3.5 w-3.5" aria-hidden />
               Add a witness
             </p>
@@ -204,7 +204,7 @@ export function WitnessPanel({
             <Field label="Witness full name" htmlFor="witnessFullName" required>
               <Input id="witnessFullName" name="fullName" maxLength={120} required />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3">
               <Field label="Email" htmlFor="witnessEmail" hint="Email or phone is required">
                 <Input id="witnessEmail" name="email" type="email" maxLength={160} />
               </Field>
@@ -215,7 +215,7 @@ export function WitnessPanel({
             <Field label="Witness address" htmlFor="witnessAddress" hint="Optional now, confirmed at attestation">
               <Input id="witnessAddress" name="address" maxLength={240} />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3">
               <Field label="Occupation" htmlFor="witnessOccupation" hint="Optional">
                 <Input id="witnessOccupation" name="occupation" maxLength={120} />
               </Field>

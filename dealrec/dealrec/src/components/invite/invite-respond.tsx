@@ -14,8 +14,8 @@ import { PreservedForm } from "@/components/ui/preserved-form";
 type Mode = "accept" | "change" | "decline";
 
 const choices: { key: Mode; label: string; icon: typeof CheckCircle2; classes: string }[] = [
-  { key: "accept", label: "Accept and continue", icon: CheckCircle2, classes: "border-brand-300 bg-brand-50 text-brand-900" },
-  { key: "change", label: "Request a change", icon: MessageSquareWarning, classes: "border-sand-200 bg-sand-100 text-sand-700" },
+  { key: "accept", label: "Accept and continue", icon: CheckCircle2, classes: "border-violet-200 bg-violet-50 text-violet-700" },
+  { key: "change", label: "Request a change", icon: MessageSquareWarning, classes: "border-amber-200 bg-amber-100 text-amber-700" },
   { key: "decline", label: "Decline this deal", icon: ThumbsDown, classes: "border-red-200 bg-red-50 text-red-800" },
 ];
 
@@ -55,7 +55,7 @@ export function InviteRespond({ token }: { token: string }) {
               onClick={() => setMode(item.key)}
               className={cn(
                 "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-[12px] font-semibold",
-                mode === item.key ? item.classes : "border-ink-200 bg-white text-ink-600",
+                mode === item.key ? item.classes : "border-ink-200 bg-surface-raised text-ink-muted",
               )}
             >
               <Icon className="h-4 w-4" aria-hidden />
@@ -83,7 +83,7 @@ export function InviteRespond({ token }: { token: string }) {
         >
           {mode === "accept" ? "Accept invitation" : mode === "change" ? "Send change request" : "Decline deal"}
         </SubmitButton>
-        <p className="text-[11px] leading-5 text-ink-500">
+        <p className="text-[11px] leading-5 text-ink-subtle">
           {choice.label}. This response is recorded as a deal event with your verified contact.
         </p>
       </PreservedForm>

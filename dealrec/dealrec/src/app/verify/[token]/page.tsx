@@ -143,11 +143,11 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
   }
 
   return (
-    <div className="min-h-dvh bg-ink-50">
-      <header className="border-b border-ink-200 bg-white">
+    <div className="min-h-dvh bg-canvas">
+      <header className="sticky top-0 z-10 bg-surface-raised/90 shadow-[var(--shadow-soft)] backdrop-blur">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4 sm:px-6">
           <Logo />
-          <Link href="/verify" className="text-[12px] font-semibold text-ink-500 hover:text-ink-800">
+          <Link href="/verify" className="text-[12px] font-semibold text-ink-muted transition-colors hover:text-ink">
             New search
           </Link>
         </div>
@@ -157,23 +157,23 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
         {!seal ? (
           <Card className="text-center">
             <CardBody className="py-10">
-              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-danger-50 text-danger-600">
                 <ShieldAlert className="h-6 w-6" aria-hidden />
               </span>
-              <h1 className="mt-3 text-xl font-extrabold text-ink-900">No verification record found</h1>
-              <p className="mx-auto mt-2 max-w-md text-[13px] leading-6 text-ink-600">
+              <h1 className="mt-3 text-xl font-extrabold text-ink">No verification record found</h1>
+              <p className="mx-auto mt-2 max-w-md text-[13px] leading-6 text-ink-muted">
                 Check that the reference or verification code is complete and correct. A record may
                 also be unavailable if the deal was never executed or the seal was removed.
               </p>
-              <Link href="/verify" className="mt-4 inline-flex text-[13px] font-semibold text-brand-700">
+              <Link href="/verify" className="mt-4 inline-flex text-[13px] font-semibold text-violet-700 hover:text-violet-600">
                 Try another search
               </Link>
             </CardBody>
           </Card>
         ) : (
           <div className="space-y-4">
-            <Card className={seal.status === "ACTIVE" ? "border-brand-300" : "border-red-300"}>
-              <div className={seal.status === "ACTIVE" ? "bg-brand-600 px-5 py-5 text-white" : "bg-red-600 px-5 py-5 text-white"}>
+            <Card className="overflow-hidden">
+              <div className={seal.status === "ACTIVE" ? "bg-violet-600 px-5 py-5 text-white" : "bg-danger-600 px-5 py-5 text-white"}>
                 <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide opacity-90">
                   {seal.status === "ACTIVE" ? (
                     <CheckCircle2 className="h-4 w-4" aria-hidden />
@@ -187,26 +187,26 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
               </div>
               <CardBody className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Seal serial</p>
-                  <p className="font-mono text-[13px] font-bold text-ink-900">{seal.serialNumber}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">Seal serial</p>
+                  <p className="font-mono text-[13px] font-bold text-ink">{seal.serialNumber}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Issued</p>
-                  <p className="text-[13px] font-semibold text-ink-800">{formatDateTime(seal.issuedAt)}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">Issued</p>
+                  <p className="text-[13px] font-semibold text-ink">{formatDateTime(seal.issuedAt)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Executed version</p>
-                  <p className="text-[13px] font-semibold text-ink-800">{seal.document.versionNumber}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">Executed version</p>
+                  <p className="text-[13px] font-semibold text-ink">{seal.document.versionNumber}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Executed at</p>
-                  <p className="text-[13px] font-semibold text-ink-800">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">Executed at</p>
+                  <p className="text-[13px] font-semibold text-ink">
                     {seal.deal.executedAt ? formatDateTime(seal.deal.executedAt) : "—"}
                   </p>
                 </div>
                 <div className="sm:col-span-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Executed document SHA-256</p>
-                  <p className="break-all font-mono text-[10px] text-ink-600">{seal.document.sha256}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">Executed document SHA-256</p>
+                  <p className="break-all font-mono text-[10px] text-ink-muted">{seal.document.sha256}</p>
                 </div>
                 {seal.revokedAt ? (
                   <div className="sm:col-span-2">
@@ -226,13 +226,13 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
                     (signature) => signature.partyId === party.id && signature.documentId === seal.documentId,
                   );
                   return (
-                    <div key={party.id} className="flex items-center gap-3 rounded-xl border border-ink-100 p-3">
+                    <div key={party.id} className="flex items-center gap-3 rounded-xl border border-ink-100 bg-surface-muted/30 p-3">
                       <Avatar name={party.fullName} size="sm" />
                       <div className="min-w-0">
-                        <p className="truncate text-[12px] font-semibold text-ink-900">{party.fullName}</p>
-                        <p className="text-[10px] text-ink-500">{party.role}</p>
+                        <p className="truncate text-[12px] font-semibold text-ink">{party.fullName}</p>
+                        <p className="text-[10px] text-ink-subtle">{party.role}</p>
                       </div>
-                      {signed ? <CheckCircle2 className="ml-auto h-4 w-4 text-brand-600" aria-hidden /> : null}
+                      {signed ? <CheckCircle2 className="ml-auto h-4 w-4 text-sky-600" aria-hidden /> : null}
                     </div>
                   );
                 })}
@@ -250,7 +250,7 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
                     seal.deal.documents.find((document) => document.id === witness.documentId)
                       ?.versionNumber === seal.document.versionNumber,
                 ).length === 0 ? (
-                  <p className="text-[12px] text-ink-500">No witnesses recorded for this version.</p>
+                  <p className="text-[12px] text-ink-muted">No witnesses recorded for this version.</p>
                 ) : (
                   seal.deal.witnesses
                     .filter(
@@ -266,14 +266,14 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
                       return (
                         <div
                           key={witness.id}
-                          className="flex items-center gap-3 rounded-xl border border-ink-100 p-3"
+                          className="flex items-center gap-3 rounded-xl border border-ink-100 bg-surface-muted/30 p-3"
                         >
                           <Avatar name={witness.fullName} size="sm" />
                           <div className="min-w-0">
-                            <p className="truncate text-[12px] font-semibold text-ink-900">
+                            <p className="truncate text-[12px] font-semibold text-ink">
                               {witness.fullName}
                             </p>
-                            <p className="text-[10px] text-ink-500">
+                            <p className="text-[10px] text-ink-subtle">
                               Witness for {witnessedParty?.fullName ?? "party"}
                               {witness.acceptedAt
                                 ? ` · Accepted ${formatDateTime(witness.acceptedAt)}`
@@ -284,8 +284,8 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
                           <span
                             className={
                               attested
-                                ? "ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700"
-                                : "ml-auto text-[10px] font-semibold text-ink-500"
+                                ? "ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-sky-700"
+                                : "ml-auto text-[10px] font-semibold text-ink-subtle"
                             }
                           >
                             {attested ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : null}
@@ -308,18 +308,18 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
                 />
                 <CardBody className="space-y-3">
                   {packFingerprints.map((pack, index) => (
-                    <div key={pack.id} className="rounded-xl border border-ink-100 p-3">
-                      <p className="text-[11px] font-semibold text-ink-800">
+                    <div key={pack.id} className="rounded-xl border border-ink-100 bg-surface-muted/30 p-3">
+                      <p className="text-[11px] font-semibold text-ink">
                         {formatDateTime(pack.createdAt)}
                         {index === 0 ? " · Latest pack" : ""}
                         {pack.fileCount === null ? "" : ` · ${pack.fileCount} files`}
                       </p>
-                      <p className="mt-1 break-all font-mono text-[10px] leading-5 text-ink-600">
+                      <p className="mt-1 break-all font-mono text-[10px] leading-5 text-ink-muted">
                         {pack.zipSha256}
                       </p>
                     </div>
                   ))}
-                  <p className="text-[11px] leading-5 text-ink-500">
+                  <p className="text-[11px] leading-5 text-ink-subtle">
                     A matching ZIP hash shows the pack is byte-for-byte identical to the pack generated
                     by dealrec. If any file inside the ZIP was edited or replaced, the ZIP hash will not
                     match. A mismatch does not by itself prove fraud.
@@ -330,14 +330,14 @@ export default async function VerifyResultPage({ params }: { params: Promise<{ t
 
             <Card>
               <CardHeader title="What this result means" />
-              <CardBody className="space-y-2 text-[11px] leading-5 text-ink-500">
+              <CardBody className="space-y-2 text-[11px] leading-5 text-ink-subtle">
                 <p className="flex gap-2"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />The seal confirms that dealrec recorded this executed document, version and party set.</p>
                 <p className="flex gap-2"><FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />Use the file comparison above to check whether a copy of any recorded file is byte-for-byte identical.</p>
                 <p className="flex gap-2"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />A valid seal is not legal advice or a government certification, and does not guarantee payment, recovery, enforceability or admissibility. Contact a qualified Nigerian legal practitioner for legal questions.</p>
               </CardBody>
             </Card>
 
-            <p className="text-center text-[10px] text-ink-400">
+            <p className="text-center text-[10px] text-ink-subtle">
               Checked {formatDateTime(new Date())} · dealrec public verification
             </p>
           </div>

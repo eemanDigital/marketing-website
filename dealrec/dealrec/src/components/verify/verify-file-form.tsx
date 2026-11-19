@@ -65,7 +65,7 @@ export function VerifyFileForm({
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <FileSearch className="h-4 w-4 text-brand-600" aria-hidden />
+            <FileSearch className="h-4 w-4 text-violet-600" aria-hidden />
             Compare a file
           </span>
         }
@@ -78,7 +78,7 @@ export function VerifyFileForm({
           <input type="hidden" name="fileHash" value={fileHash} />
 
           <div>
-            <label htmlFor="artifactId" className="mb-1 block text-[11px] font-semibold text-ink-600">
+            <label htmlFor="artifactId" className="mb-1 block text-[11px] font-semibold text-ink-muted">
               Recorded file to compare against
             </label>
             <select
@@ -86,7 +86,7 @@ export function VerifyFileForm({
               name="artifactId"
               value={artifactId}
               onChange={(event) => setArtifactId(event.target.value)}
-              className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-[12px] text-ink-800"
+              className="w-full rounded-xl border border-ink-200 bg-surface-raised px-3 py-2 text-[12px] text-ink"
             >
               {groups.map(([group, items]) => (
                 <optgroup key={group} label={group}>
@@ -99,17 +99,17 @@ export function VerifyFileForm({
               ))}
             </select>
             {selected?.detail ? (
-              <p className="mt-1 text-[10px] text-ink-500">{selected.detail}</p>
+              <p className="mt-1 text-[10px] text-ink-subtle">{selected.detail}</p>
             ) : null}
             {selected?.expectedFingerprint ? (
-              <p className="mt-1 break-all font-mono text-[10px] text-ink-500">
+              <p className="mt-1 break-all font-mono text-[10px] text-ink-subtle">
                 Recorded SHA-256: {selected.expectedFingerprint}…
               </p>
             ) : null}
           </div>
 
           <div>
-            <label htmlFor="verifyFile" className="mb-1 block text-[11px] font-semibold text-ink-600">
+            <label htmlFor="verifyFile" className="mb-1 block text-[11px] font-semibold text-ink-muted">
               Your copy of that file
             </label>
             <input
@@ -117,12 +117,12 @@ export function VerifyFileForm({
               type="file"
               required
               onChange={handleFileChange}
-              className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-[12px] text-ink-600 file:mr-2 file:rounded-lg file:border-0 file:bg-ink-100 file:px-3 file:py-1.5 file:text-[12px] file:font-semibold"
+              className="w-full rounded-xl border border-ink-200 bg-surface-raised px-3 py-2 text-[12px] text-ink-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface-muted file:px-3 file:py-1.5 file:text-[12px] file:font-semibold"
             />
             {hashing ? (
-              <p className="mt-1 text-[10px] text-ink-500">Computing SHA-256…</p>
+              <p className="mt-1 text-[10px] text-ink-subtle">Computing SHA-256…</p>
             ) : fileHash ? (
-              <p className="mt-1 break-all font-mono text-[10px] text-ink-500">
+              <p className="mt-1 break-all font-mono text-[10px] text-ink-subtle">
                 Local hash: {fileHash.slice(0, 16)}… · {fileName}
               </p>
             ) : null}

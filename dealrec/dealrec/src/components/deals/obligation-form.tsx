@@ -25,8 +25,8 @@ export function ObligationForm({
     <PreservedForm ref={formRef} action={action} className="space-y-3">
       <input type="hidden" name="dealId" value={dealId} />
       <ActionMessage state={state} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Obligation" htmlFor="obligationTitle" required className="sm:col-span-2">
+      <div className="grid gap-3">
+        <Field label="Obligation" htmlFor="obligationTitle" required>
           <Input id="obligationTitle" name="title" placeholder="e.g. Pay balance on delivery" required maxLength={160} />
         </Field>
         <Field label="Amount (optional)" htmlFor="obligationAmount">
@@ -35,7 +35,7 @@ export function ObligationForm({
         <Field label="Due date (optional)" htmlFor="dueAt">
           <Input id="dueAt" name="dueAt" type="date" />
         </Field>
-        <Field label="Responsible party (optional)" htmlFor="responsiblePartyId" className="sm:col-span-2">
+        <Field label="Responsible party (optional)" htmlFor="responsiblePartyId">
           <Select id="responsiblePartyId" name="responsiblePartyId" defaultValue="">
             <option value="">Not assigned</option>
             {parties.map((party) => (
@@ -45,7 +45,7 @@ export function ObligationForm({
             ))}
           </Select>
         </Field>
-        <Field label="Details (optional)" htmlFor="obligationDescription" className="sm:col-span-2">
+        <Field label="Details (optional)" htmlFor="obligationDescription">
           <Textarea id="obligationDescription" name="description" maxLength={2000} />
         </Field>
       </div>

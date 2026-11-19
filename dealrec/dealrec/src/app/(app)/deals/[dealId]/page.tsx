@@ -2,16 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   Banknote,
   CalendarClock,
   CheckCircle2,
   Clock,
   Download,
-  FileCheck2,
   FileText,
-  Hash,
   Link2,
-  MessageSquare,
   PackageCheck,
   QrCode,
   Send,
@@ -29,7 +27,6 @@ import {
   partyHasSigned,
   paymentSummary,
   safeValues,
-  statusTone,
   workspaceProgress,
 } from "@/lib/deals";
 import { buildAgreementContent } from "@/lib/agreement";
@@ -37,21 +34,13 @@ import { getTemplate } from "@/lib/templates";
 import {
   AUTH_LEVEL_LABEL,
   DEAL_STATUS,
-  DEAL_STATUS_LABEL,
   EVENT_LABEL,
   OBLIGATION_STATUS,
+  TIME_ZONE,
   WITNESS_STATUS,
   WITNESS_STATUS_LABEL,
 } from "@/lib/constants";
-import {
-  formatDate,
-  formatDateTime,
-  formatNaira,
-  cn,
-  shortHash,
-  titleCase,
-  toDateInputValue,
-} from "@/lib/utils";
+import { formatDate, formatDateTime, formatNaira, cn, shortHash, toDateInputValue } from "@/lib/utils";
 import {
   cancelDealAction,
   markCompletedAction,
@@ -59,11 +48,13 @@ import {
   sendInvitationAction,
   voidDealAction,
 } from "@/server/actions/deals";
+import { StatusPill } from "@/components/ui/status-pill";
+import { AvatarStack } from "@/components/ui/avatar-stack";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink, buttonStyles } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
 import { Alert } from "@/components/ui/alert";
+import { EmptyState } from "@/components/ui/empty-state";
 import { CopyButton } from "@/components/ui/copy-button";
 import { SignPanel } from "@/components/deals/sign-panel";
 import { VersionForm } from "@/components/deals/version-form";
@@ -74,16 +65,17 @@ import { ObligationForm } from "@/components/deals/obligation-form";
 import { ObligationRecordActions } from "@/components/deals/obligation-record-actions";
 import { WitnessPanel } from "@/components/deals/witness-panel";
 import { ExecutionArtifactsButton } from "@/components/deals/execution-artifacts-button";
+import { presentStatus } from "@/lib/ui-status";
+import { HashChip } from "@/components/ui/hash-chip";
 
-export const metadata = { title: "Deal workspace" };
+export const metadata = { title: "Agreement" };
 
 const TABS = [
-  { key: "overview", label: "Overview" },
-  { key: "agreement", label: "Agreement" },
-  { key: "activity", label: "Activity" },
-  { key: "payments", label: "Payments" },
-  { key: "invite", label: "Invite & sign" },
-];
+  { key: "terms", label: "Terms" },
+  { key: "negotiation", label: "Negotiation" },
+  { key: "evidence", label: "Evidence" },
+  { key: "audit", label: "Audit trail" },
+] as const;
 
 const DOCUMENT_LABEL: Record<string, string> = {
   draft: "Draft agreement",
@@ -96,18 +88,45 @@ const DOCUMENT_LABEL: Record<string, string> = {
   attachment: "Attachment",
 };
 
+function fmtWAT(value: Date | string | null | undefined) {
+  if (!value) return "—";
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return "—";
+  return (
+    new Intl.DateTimeFormat("en-NG", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: TIME_ZONE,
+      hour12: false,
+    }).format(date) + " WAT"
+  );
+}
+
 export default async function DealWorkspacePage({
   params,
   searchParams,
 }: {
   params: Promise<{ dealId: string }>;
-  searchParams: Promise<{ tab?: string; token?: string; version?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    token?: string;
+    version?: string;
+    created?: string;
+    sent?: string;
+    revoked?: string;
+  }>;
 }) {
   const user = await getDealAccess((await params).dealId);
   if (!user) notFound();
   const { user: currentUser, deal, party, isCreator } = user;
-  const { tab: rawTab, token } = await searchParams;
-  const tab = TABS.some((item) => item.key === rawTab) ? rawTab! : "overview";
+  const { tab: rawTab, token, created, sent, revoked } = await searchParams;
+  const normalizedTab = rawTab === "invite" ? "terms" : rawTab;
+  const tab = TABS.some((item) => item.key === normalizedTab)
+    ? (normalizedTab as (typeof TABS)[number]["key"])
+    : "terms";
 
   const template = getTemplate(deal.templateSlug);
   const values = safeValues(deal);
@@ -116,19 +135,20 @@ export default async function DealWorkspacePage({
   const executionReady =
     progress.signed === progress.required &&
     progress.witnessesAttested === progress.witnessesRequired &&
-    ![DEAL_STATUS.CANCELLED, DEAL_STATUS.VOIDED, DEAL_STATUS.SUPERSEDED].includes(deal.status as never);
+    ![DEAL_STATUS.CANCELLED, DEAL_STATUS.VOIDED, DEAL_STATUS.SUPERSEDED].includes(
+      deal.status as never,
+    );
   const summary = paymentSummary(deal);
-  const activePayments = deal.payments.filter((payment) => !payment.voidedAt);
   const seal = deal.seals[0] ?? null;
   const executed = executedDocument(deal);
   const certificate = certificateDocument(deal);
   const creatorParty = deal.parties.find((item) => item.isCreator);
   const otherParty = deal.parties.find((item) => !item.isCreator);
-  const me = party ?? deal.parties.find((item) => item.userId === currentUser.id) ?? creatorParty;
+  const me =
+    party ?? deal.parties.find((item) => item.userId === currentUser.id) ?? creatorParty;
   const mySigned = me ? partyHasSigned(deal, me.id) : false;
   const otherPartySigned = otherParty ? partyHasSigned(deal, otherParty.id) : false;
   const openForSigning = canSign(deal);
-  const tone = statusTone(deal.status) as "success" | "warning" | "danger" | "neutral";
   const activeInvitation = getActiveInvitation(deal);
   const baseUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
   const inviteUrl = token ? `${baseUrl}/invite/${token}` : null;
@@ -137,1055 +157,717 @@ export default async function DealWorkspacePage({
   );
 
   const agreement = buildAgreementContent(deal, deal.parties);
-  const witnessViews = (document ? deal.witnesses.filter((witness) => witness.documentId === document.id) : []).map(
-    (witness) => ({
-      id: witness.id,
-      witnessedPartyId: witness.witnessedPartyId,
-      witnessedPartyName:
-        deal.parties.find((item) => item.id === witness.witnessedPartyId)?.fullName ?? "Party",
-      fullName: witness.fullName,
-      status: witness.status,
-      statusLabel: WITNESS_STATUS_LABEL[witness.status] ?? witness.status,
-      required: witness.required,
-      expiresLabel: formatDate(witness.expiresAt),
-      acceptedLabel: witness.acceptedAt ? formatDateTime(witness.acceptedAt) : null,
-      attestedLabel: witness.attestedAt ? formatDateTime(witness.attestedAt) : null,
-      openCount: witness.openCount,
-      canManage:
-        !isClosed &&
-        deal.status !== DEAL_STATUS.EXECUTED &&
-        !deal.executedAt &&
-        (isCreator ||
-          currentUser.isAdmin ||
-          me?.id === witness.addedByPartyId ||
-          me?.id === witness.witnessedPartyId) &&
-        witness.status !== WITNESS_STATUS.REVOKED &&
-        witness.status !== WITNESS_STATUS.SUPERSEDED,
-      canResend:
-        !isClosed &&
-        deal.status !== DEAL_STATUS.EXECUTED &&
-        !deal.executedAt &&
-        witness.status !== WITNESS_STATUS.ATTESTED &&
-        witness.status !== WITNESS_STATUS.REVOKED &&
-        witness.status !== WITNESS_STATUS.SUPERSEDED &&
-        (isCreator ||
-          currentUser.isAdmin ||
-          me?.id === witness.addedByPartyId ||
-          me?.id === witness.witnessedPartyId),
-    }),
-  );
+  const witnessViews = (document
+    ? deal.witnesses.filter((witness) => witness.documentId === document.id)
+    : []
+  ).map((witness) => ({
+    id: witness.id,
+    witnessedPartyId: witness.witnessedPartyId,
+    witnessedPartyName:
+      deal.parties.find((item) => item.id === witness.witnessedPartyId)?.fullName ?? "Party",
+    fullName: witness.fullName,
+    status: witness.status,
+    statusLabel: WITNESS_STATUS_LABEL[witness.status] ?? witness.status,
+    required: witness.required,
+    expiresLabel: formatDate(witness.expiresAt),
+    acceptedLabel: witness.acceptedAt ? formatDateTime(witness.acceptedAt) : null,
+    attestedLabel: witness.attestedAt ? formatDateTime(witness.attestedAt) : null,
+    openCount: witness.openCount,
+    canManage:
+      !isClosed &&
+      deal.status !== DEAL_STATUS.EXECUTED &&
+      !deal.executedAt &&
+      (isCreator ||
+        currentUser.isAdmin ||
+        me?.id === witness.addedByPartyId ||
+        me?.id === witness.witnessedPartyId) &&
+      witness.status !== WITNESS_STATUS.REVOKED &&
+      witness.status !== WITNESS_STATUS.SUPERSEDED,
+    canResend:
+      !isClosed &&
+      deal.status !== DEAL_STATUS.EXECUTED &&
+      !deal.executedAt &&
+      witness.status !== WITNESS_STATUS.ATTESTED &&
+      witness.status !== WITNESS_STATUS.REVOKED &&
+      witness.status !== WITNESS_STATUS.SUPERSEDED &&
+      (isCreator ||
+        currentUser.isAdmin ||
+        me?.id === witness.addedByPartyId ||
+        me?.id === witness.witnessedPartyId),
+  }));
+
+  const partyNames = deal.parties.map((p) => p.fullName);
+  const pStatus = presentStatus(deal.status);
+  const nextAction = (() => {
+    if (deal.status === DEAL_STATUS.AWAITING_CREATOR_SIGNATURE && isCreator)
+      return { label: "Sign agreement", href: `/deals/${deal.id}?tab=terms` };
+    if (deal.status === DEAL_STATUS.CHANGE_REQUESTED && isCreator)
+      return { label: "Review changes", href: `/deals/${deal.id}?tab=negotiation` };
+    if (deal.status === DEAL_STATUS.AWAITING_COUNTERPARTY && isCreator)
+      return { label: "Share invitation", href: `/deals/${deal.id}?tab=terms#invite` };
+    if (deal.status === DEAL_STATUS.AWAITING_OTHER_SIGNATURES)
+      return { label: "Waiting on other party", href: `/deals/${deal.id}?tab=terms` };
+    if (pStatus.key === "sealed")
+      return { label: "View evidence", href: `/deals/${deal.id}?tab=evidence` };
+    return { label: "Review terms", href: `/deals/${deal.id}?tab=terms` };
+  })();
+
+  // Per-party state derivable today from existing data.
+  // "Viewed" is not tracked as a durable per-party field in the current schema.
+  // Proposed smallest addition (additive, nullable): DealParty.lastViewedAt DateTime?
+  // updated on authenticated deal view / invite open (throttled), no destructive migration.
+  const partyStates = deal.parties.map((p) => {
+    const signed = partyHasSigned(deal, p.id);
+    const invited = deal.invitations.some((i) => i.partyId === p.id);
+    let state = "Not joined";
+    if (signed) state = "Signed";
+    else if (invited) state = "Invited";
+    else if (p.userId) state = "Joined";
+    if (isClosed && !signed) state = "Closed";
+    return { ...p, state, signed, viewedTracked: false as const };
+  });
+
+  const timeline = [...deal.events].sort((a, b) => b.sequence - a.sequence);
 
   return (
     <div className="space-y-5">
-      <Link href="/deals" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-500 hover:text-ink-800">
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-        Back to deals
+      <Link
+        href="/deals"
+        className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink-muted hover:text-ink"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+        Back to agreements
       </Link>
 
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={tone}>{DEAL_STATUS_LABEL[deal.status] ?? deal.status}</Badge>
-            <span className="font-mono text-[11px] font-semibold text-ink-500">{deal.reference}</span>
-            {deal.status === DEAL_STATUS.EXECUTED ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700">
-                <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-                Sealed record
+      <div className="rounded-card-lg bg-surface-raised p-5 shadow-[var(--shadow-soft)] sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusPill status={deal.status} />
+              <span className="font-mono text-[11px] font-semibold text-ink-subtle">
+                {deal.reference}
               </span>
+              {seal ? (
+                <span className="inline-flex items-center gap-1 rounded-pill bg-sky-100 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
+                  <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+                  Sealed
+                </span>
+              ) : null}
+            </div>
+            <h1 className="mt-2 text-[24px] font-extrabold leading-tight tracking-[-0.03em] text-ink sm:text-[30px]">
+              {deal.title}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-ink-muted">
+              <span className="font-semibold text-ink">
+                {deal.totalAmount ? formatNaira(deal.totalAmount) : "Amount not set"}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Users className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                {deal.parties.length} participant{deal.parties.length === 1 ? "" : "s"}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarClock className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                Updated {formatDate(deal.updatedAt)}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <AvatarStack names={partyNames} max={4} />
+              <span className="text-[12px] text-ink-muted">{partyNames.join(" · ")}</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {executed && seal ? (
+              <Link
+                href={`/deals/${deal.id}/documents/${executed.id}`}
+                className={buttonStyles({ size: "sm" })}
+              >
+                <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                Executed copy
+              </Link>
+            ) : document ? (
+              <Link
+                href={`/deals/${deal.id}/documents/${document.id}`}
+                className={buttonStyles({ variant: "outline", size: "sm" })}
+              >
+                <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                Source PDF
+              </Link>
             ) : null}
-          </div>
-          <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">
-            {deal.title}
-          </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-ink-500">
-            <span className="inline-flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" aria-hidden />
-              {deal.parties.map((item) => item.fullName).join(" · ")}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <CalendarClock className="h-3.5 w-3.5" aria-hidden />
-              Updated {formatDate(deal.updatedAt)}
-            </span>
-            {template ? <span>{template.name}</span> : <span>Uploaded PDF</span>}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {executed && seal ? (
-            <>
-              <Link href={`/deals/${deal.id}/documents/${executed.id}`} className={buttonStyles({ size: "sm" })}>
-                <Download className="h-4 w-4" aria-hidden />
-                Executed agreement
-              </Link>
-              <Link href={`/deals/${deal.id}/evidence`} className={buttonStyles({ size: "sm" })}>
-                <Download className="h-4 w-4" aria-hidden />
-                Evidence pack
-              </Link>
-              <Link href={`/verify/${seal.verificationToken}`} className={buttonStyles({ variant: "outline", size: "sm" })}>
-                <QrCode className="h-4 w-4" aria-hidden />
+            {seal ? (
+              <Link
+                href={`/verify/${seal.verificationToken}`}
+                className={buttonStyles({ variant: "outline", size: "sm" })}
+              >
+                <QrCode className="h-4 w-4" strokeWidth={1.5} aria-hidden />
                 Verify
               </Link>
-            </>
-          ) : null}
-          {!isClosed && isCreator ? (
-            <Link href={`/deals/${deal.id}?tab=invite`} className={buttonStyles({ variant: "outline", size: "sm" })}>
-              <Send className="h-4 w-4" aria-hidden />
-              Invite
-            </Link>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card className="p-3.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Deal value</p>
-          <p className="mt-1 truncate text-[15px] font-bold text-ink-900">
-            {deal.totalAmount ? formatNaira(deal.totalAmount) : "Not set"}
-          </p>
-        </Card>
-        <Card className="p-3.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Paid</p>
-          <p className="mt-1 truncate text-[15px] font-bold text-brand-800">{formatNaira(summary.paid)}</p>
-        </Card>
-        <Card className="p-3.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Outstanding</p>
-          <p className="mt-1 truncate text-[15px] font-bold text-ink-900">
-            {summary.outstanding === null ? "Not set" : formatNaira(summary.outstanding)}
-          </p>
-        </Card>
-        <Card className="p-3.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Signed</p>
-          <p className="mt-1 text-[15px] font-bold text-ink-900">
-            {progress.signed} / {progress.required}
-          </p>
-        </Card>
-      </div>
-
-      <div className="flex gap-1.5 overflow-x-auto border-b border-ink-200 pb-0">
-        {TABS.map((item) => (
-          <Link
-            key={item.key}
-            href={`/deals/${deal.id}?tab=${item.key}${token ? `&token=${encodeURIComponent(token)}` : ""}`}
-            className={
-              tab === item.key
-                ? "shrink-0 border-b-2 border-brand-600 px-3 py-2.5 text-[13px] font-bold text-brand-800"
-                : "shrink-0 border-b-2 border-transparent px-3 py-2.5 text-[13px] font-semibold text-ink-500 hover:text-ink-800"
-            }
-          >
-            {item.label}
-          </Link>
-        ))}
-      </div>
-
-      {tab === "overview" ? (
-        <div className="grid gap-4 lg:grid-cols-[1.25fr_1fr]">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader title="Parties and signatures" description="Signatures are tied to the current version." />
-              <CardBody className="space-y-3">
-                {deal.parties.map((item) => {
-                  const signed = partyHasSigned(deal, item.id);
-                  return (
-                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 p-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Avatar name={item.fullName} />
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-semibold text-ink-900">
-                            {item.fullName}
-                            {item.userId === currentUser.id ? " (you)" : ""}
-                          </p>
-                          <p className="text-[11px] text-ink-500">
-                            {item.role} · {AUTH_LEVEL_LABEL[item.authenticationLevel] ?? "Not verified"}
-                          </p>
-                        </div>
-                      </div>
-                      {signed ? (
-                        <Badge tone="success">
-                          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-                          Signed
-                        </Badge>
-                      ) : (
-                        <Badge tone="warning">Awaiting signature</Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader title="Payment position" description="Party-recorded payments only." />
-              <CardBody className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl bg-ink-50 p-3">
-                  <p className="text-[11px] text-ink-500">Total</p>
-                  <p className="text-sm font-bold text-ink-900">
-                    {summary.total === null ? "Not set" : formatNaira(summary.total)}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-brand-50 p-3">
-                  <p className="text-[11px] text-brand-700">Paid</p>
-                  <p className="text-sm font-bold text-brand-900">{formatNaira(summary.paid)}</p>
-                </div>
-                <div className="rounded-xl bg-sand-100 p-3">
-                  <p className="text-[11px] text-sand-700">Outstanding</p>
-                  <p className="text-sm font-bold text-sand-700">
-                    {summary.outstanding === null ? "Not set" : formatNaira(summary.outstanding)}
-                  </p>
-                </div>
-                <div className="sm:col-span-3 flex flex-wrap gap-2 text-[11px]">
-                  <Badge tone={summary.status === "PAID" ? "success" : summary.status === "UNPAID" ? "danger" : "warning"}>
-                    {titleCase(summary.status)}
-                  </Badge>
-                  {summary.overdue > 0 ? <Badge tone="danger">{summary.overdue} overdue</Badge> : null}
-                  {summary.nextDue ? <Badge tone="info">Next due {formatDate(summary.nextDue)}</Badge> : null}
-                </div>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader
-                title="Recent activity"
-                description="Key events in the deal record."
-                action={
-                  <Link href={`/deals/${deal.id}?tab=activity`} className="text-[12px] font-semibold text-brand-700">
-                    View all
-                  </Link>
-                }
-              />
-              <CardBody className="space-y-3">
-                {deal.events.slice(-5).reverse().map((event) => (
-                  <div key={event.id} className="flex gap-3">
-                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-500" />
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-semibold text-ink-800">
-                        {EVENT_LABEL[event.eventType] ?? event.eventType}
-                      </p>
-                      <p className="text-[12px] leading-5 text-ink-500">{event.description}</p>
-                      <p className="text-[10px] text-ink-400">{formatDateTime(event.createdAt)}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardBody>
-            </Card>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-4">
+          <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            {TABS.map((item) => {
+              const active = tab === item.key;
+              return (
+                <Link
+                  key={item.key}
+                  href={`/deals/${deal.id}?tab=${item.key}${token ? `&token=${encodeURIComponent(token)}` : ""}`}
+                  className={cn(
+                    "shrink-0 rounded-pill px-4 py-2 text-[13px] font-semibold transition-colors",
+                    active
+                      ? "bg-primary text-white shadow-[var(--shadow-soft)]"
+                      : "bg-surface-raised text-ink-muted shadow-[var(--shadow-soft)] hover:text-ink",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
 
-          <div className="space-y-4">
-            <Card>
-              <CardHeader title="Record details" />
-              <CardBody className="space-y-2.5 text-[12px]">
-                {[
-                  ["Reference", deal.reference],
-                  ["Template", template?.name ?? "Uploaded PDF"],
-                  ["Current version", String(deal.currentVersion)],
-                  ["Created", formatDate(deal.createdAt)],
-                  ["Executed", deal.executedAt ? formatDateTime(deal.executedAt) : "Not yet"],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-start justify-between gap-3">
-                    <span className="text-ink-500">{label}</span>
-                    <span className="text-right font-semibold text-ink-800">{value}</span>
-                  </div>
-                ))}
-              </CardBody>
-            </Card>
+          {created ? (
+            <Alert tone="success" title="Agreement created">
+              Review the terms below, then share the invitation link with the other party so they can
+              review and sign.
+            </Alert>
+          ) : null}
+          {sent ? (
+            <Alert tone="success" title="Invitation link ready">
+              A new secure access link has been created. It is shown once in the Share &amp; invite
+              section below — copy it now and send it to the other party.
+            </Alert>
+          ) : null}
+          {revoked ? (
+            <Alert tone="info" title="Invitation links revoked">
+              Active invitation links for this agreement have been revoked. You can create a new link
+              in the Share &amp; invite section when ready.
+            </Alert>
+          ) : null}
 
-            {seal ? (
-              <Card className="border-brand-200 bg-brand-50">
-                <CardHeader title="Verification seal" description="Platform verification record." />
-                <CardBody className="space-y-2.5 text-[12px]">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-brand-800/80">Serial</span>
-                    <span className="font-mono font-semibold text-brand-900">{seal.serialNumber}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-brand-800/80">Status</span>
-                    <Badge tone={seal.status === "ACTIVE" ? "success" : "danger"}>{seal.status}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-brand-800/80">Issued</span>
-                    <span className="font-semibold text-brand-900">{formatDate(seal.issuedAt)}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <Link href={`/verify/${seal.verificationToken}`} className={buttonStyles({ variant: "outline", size: "sm" })}>
-                      <QrCode className="h-3.5 w-3.5" aria-hidden />
-                      Public page
-                    </Link>
-                    {certificate ? (
-                      <Link href={`/deals/${deal.id}/documents/${certificate.id}`} className={buttonStyles({ variant: "outline", size: "sm" })}>
-                        <FileText className="h-3.5 w-3.5" aria-hidden />
-                        Certificate
-                      </Link>
-                    ) : null}
-                  </div>
-                  <p className="pt-1 text-[10px] leading-4 text-brand-800/70">
-                    This seal confirms the platform record. It is not an NBA, notarial or government
-                    seal and does not guarantee recovery or admissibility.
-                  </p>
-                </CardBody>
-              </Card>
-            ) : (
+          {tab === "terms" ? (
+            <div className="space-y-4">
               <Card>
                 <CardHeader
-                  title={executionReady ? "Execution record needs attention" : "No seal yet"}
-                  description={
-                    executionReady
-                      ? "All signing requirements are complete, but the executed files are not ready."
-                      : "A seal is issued after all required parties and witnesses complete signing."
+                  title="Agreement terms"
+                  description={agreement.subtitle}
+                  action={
+                    document ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-[10px] font-medium text-ink-muted">Document hash</span>
+                        <HashChip hash={document.sha256} />
+                      </div>
+                    ) : null
                   }
                 />
-                <CardBody className="space-y-3">
-                  <p className="text-[12px] leading-5 text-ink-500">
-                    {executionReady
-                      ? "The executed PDF could not be generated. Check storage configuration, then retry."
-                      : "Once every required party signs the same document version and required witnesses attest, dealrec generates an executed copy, certificate, verification page and evidence pack."}
-                  </p>
-                  {executionReady && isCreator ? <ExecutionArtifactsButton dealId={deal.id} /> : null}
-                </CardBody>
-              </Card>
-            )}
-
-            {executionReady && (!executed || !seal || !certificate) && seal ? (
-              <Card className="border-sand-200 bg-sand-50">
-                <CardHeader title="Execution artifacts are incomplete" />
-                <CardBody>
-                  <p className="mb-3 text-[12px] leading-5 text-ink-600">
-                    Existing executed documents are preserved. This can create any missing certificate or seal record.
-                  </p>
-                  {isCreator ? <ExecutionArtifactsButton dealId={deal.id} /> : null}
-                </CardBody>
-              </Card>
-            ) : null}
-
-            <Card>
-              <CardHeader title="Next steps" />
-              <CardBody className="space-y-2 text-[12px] leading-5 text-ink-600">
-                {deal.status === DEAL_STATUS.AWAITING_COUNTERPARTY ? (
-                  <p>Share the invitation link so the other party can verify, review and sign.</p>
-                ) : null}
-                {deal.status === DEAL_STATUS.UNDER_REVIEW ? (
-                  <p>The other party has opened the deal and is reviewing the current version.</p>
-                ) : null}
-                {deal.status === DEAL_STATUS.AWAITING_CREATOR_SIGNATURE ? (
-                  <p>Your signature is needed. Open the Agreement tab to sign.</p>
-                ) : null}
-                {deal.status === DEAL_STATUS.AWAITING_OTHER_SIGNATURES ? (
-                  <p>The other party still needs to sign. You can resend the invitation link.</p>
-                ) : null}
-                {deal.status === DEAL_STATUS.CHANGE_REQUESTED ? (
-                  <p>A change was requested. Review the Activity tab, then prepare a revised version.</p>
-                ) : null}
-                {deal.status === DEAL_STATUS.EXECUTED ? (
-                  <p>Record payments and complete obligations. Download the evidence pack for your records.</p>
-                ) : null}
-                {deal.status === DEAL_STATUS.CHANGE_REQUESTED || deal.status === DEAL_STATUS.AWAITING_OTHER_SIGNATURES ? (
-                  <Link href={`/deals/${deal.id}?tab=invite`} className="inline-flex items-center gap-1 font-semibold text-brand-700">
-                    Go to invite <Send className="h-3.5 w-3.5" aria-hidden />
-                  </Link>
-                ) : null}
-              </CardBody>
-            </Card>
-
-            {isCreator && !isClosed ? (
-              <Card className="border-red-200">
-                <CardHeader title="Close this deal" description="This action is recorded in the event log." />
-                <CardBody className="space-y-3">
-                  {deal.status !== DEAL_STATUS.EXECUTED && deal.status !== DEAL_STATUS.ACTIVE ? (
-                    <form action={cancelDealAction} className="space-y-2">
-                      <input type="hidden" name="dealId" value={deal.id} />
-                      <input
-                        name="reason"
-                        placeholder="Reason (optional)"
-                        className="w-full rounded-lg border border-ink-200 px-3 py-2 text-[12px]"
-                      />
-                      <button type="submit" className={buttonStyles({ variant: "outline", size: "sm", className: "text-red-700" })}>
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                        Cancel deal
-                      </button>
-                    </form>
-                  ) : (
-                    <form action={voidDealAction} className="space-y-2">
-                      <input type="hidden" name="dealId" value={deal.id} />
-                      <input
-                        name="reason"
-                        placeholder="Reason for voiding (required)"
-                        className="w-full rounded-lg border border-ink-200 px-3 py-2 text-[12px]"
-                        required
-                      />
-                      <button type="submit" className={buttonStyles({ variant: "danger", size: "sm" })}>
-                        Void executed deal
-                      </button>
-                    </form>
-                  )}
-                  {[DEAL_STATUS.EXECUTED, DEAL_STATUS.ACTIVE, DEAL_STATUS.OVERDUE].includes(deal.status as never) ? (
-                    <form action={markCompletedAction}>
-                      <input type="hidden" name="dealId" value={deal.id} />
-                      <button type="submit" className={buttonStyles({ variant: "outline", size: "sm" })}>
-                        <PackageCheck className="h-3.5 w-3.5" aria-hidden />
-                        Mark completed
-                      </button>
-                    </form>
+                <CardBody className="space-y-5">
+                  {document ? (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-ink-muted">
+                      <span>Version {deal.currentVersion}</span>
+                      <span>{DOCUMENT_LABEL[document.documentType] ?? document.documentType}</span>
+                      <span>{formatDate(document.createdAt)}</span>
+                    </div>
                   ) : null}
-                </CardBody>
-              </Card>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "agreement" ? (
-        <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader
-                title={`Version ${deal.currentVersion}`}
-                description={document ? `Source PDF · ${DOCUMENT_LABEL[document.documentType] ?? document.documentType} · ${formatDate(document.createdAt)}` : "No document generated yet."}
-                action={
-                  document ? (
-                    <Link href={`/deals/${deal.id}/documents/${document.id}`} className={buttonStyles({ variant: "outline", size: "sm" })}>
-                      <Download className="h-3.5 w-3.5" aria-hidden />
-                      Source PDF
-                    </Link>
-                  ) : null
-                }
-              />
-              <CardBody>
-                {document ? (
-                  <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-ink-500">
-                    <span className="inline-flex items-center gap-1">
-                      <Hash className="h-3 w-3" aria-hidden />
-                      SHA-256 {shortHash(document.sha256, 20)}
-                    </span>
-                    <span>{Math.max(1, Math.round(document.fileSize / 1024))} KB</span>
-                    {document.changeSummary ? (
-                      <span className="basis-full whitespace-pre-line text-ink-600">{document.changeSummary}</span>
-                    ) : null}
-                  </div>
-                ) : null}
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader title="Agreement preview" description={agreement.subtitle} />
-              <CardBody className="space-y-5">
-                <div className="rounded-xl bg-ink-50 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Parties</p>
-                  {agreement.parties.map((item) => (
-                    <p key={`${item.role}-${item.name}`} className="mt-1 text-[13px] text-ink-800">
-                      <span className="font-semibold">{item.role}:</span> {item.name}
-                    </p>
-                  ))}
-                </div>
-                {agreement.sections.map((section, index) => (
-                  <div key={`${section.heading}-${index}`}>
-                    <h3 className="text-[13px] font-bold text-ink-900">
-                      {index + 1}. {section.heading}
-                    </h3>
-                    {section.body.map((paragraph, paragraphIndex) => (
-                      <p key={paragraphIndex} className="mt-1.5 text-[12px] leading-6 text-ink-600">
-                        {paragraph}
+                  <div className="rounded-[20px] bg-surface-muted p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Parties</p>
+                    {agreement.parties.map((item) => (
+                      <p key={`${item.role}-${item.name}`} className="mt-1 text-[13px] text-ink">
+                        <span className="font-semibold">{item.role}:</span> {item.name}
                       </p>
                     ))}
                   </div>
-                ))}
-                {agreement.notice ? (
-                  <Alert tone="warning" title="Important limitation">
-                    {agreement.notice}
-                  </Alert>
-                ) : null}
-                {!template && document ? (
-                  <Alert tone="info" title="Uploaded PDF">
-                    The uploaded file is the agreement. Open the PDF to read the full terms. The executed
-                    copy adds a signature and verification page.
-                  </Alert>
-                ) : null}
-                {!executed && progress.signed > 0 ? (
-                  <Alert tone="info" title="Signature recorded">
-                    The source agreement is preserved and is not rewritten after signing. The executed
-                    copy with signature images and witness records becomes available after every required
-                    party signs and every required witness attests.
-                  </Alert>
-                ) : null}
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader
-                title="Witness acknowledgments"
-                description="Acceptance and attestation records for the current version."
-              />
-              <CardBody className="space-y-2">
-                {witnessViews.length === 0 ? (
-                  <p className="text-[12px] text-ink-500">No witnesses were invited for this version.</p>
-                ) : (
-                  witnessViews.map((witness) => (
-                    <div
-                      key={witness.id}
-                      className="flex items-start justify-between gap-3 rounded-xl border border-ink-100 px-3 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-semibold text-ink-800">
-                          {witness.fullName}
-                          {witness.required ? " · Required" : " · Optional"}
+                  {agreement.sections.map((section, index) => (
+                    <div key={`${section.heading}-${index}`}>
+                      <h3 className="text-[14px] font-bold text-ink">{index + 1}. {section.heading}</h3>
+                      {section.body.map((paragraph, paragraphIndex) => (
+                        <p key={paragraphIndex} className="mt-1.5 text-[13px] leading-6 text-ink-muted">
+                          {paragraph}
                         </p>
-                        <p className="text-[11px] text-ink-500">
-                          Witness for {witness.witnessedPartyName}
-                        </p>
-                        {witness.acceptedLabel ? (
-                          <p className="text-[10px] text-ink-400">
-                            Accepted intention {witness.acceptedLabel}
-                          </p>
-                        ) : null}
-                        {witness.attestedLabel ? (
-                          <p className="text-[10px] text-ink-400">
-                            Attested {witness.attestedLabel}
-                          </p>
-                        ) : null}
-                      </div>
-                      <Badge
-                        tone={
-                          witness.status === WITNESS_STATUS.ATTESTED
-                            ? "success"
-                            : witness.status === WITNESS_STATUS.ACCEPTED ||
-                                witness.status === WITNESS_STATUS.VERIFIED ||
-                                witness.status === WITNESS_STATUS.OPENED
-                              ? "info"
-                              : witness.status === WITNESS_STATUS.REVOKED ||
-                                  witness.status === WITNESS_STATUS.SUPERSEDED
-                                ? "neutral"
-                                : "warning"
-                        }
-                      >
-                        {witness.statusLabel}
-                      </Badge>
-                    </div>
-                  ))
-                )}
-                <p className="pt-1 text-[10px] leading-4 text-ink-400">
-                  The signed source PDF is not changed after signing. Witness acceptance and attestation
-                  are included in the executed copy generated after every requirement is complete.
-                </p>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader title="Version history" description="Every version has a stored hash and audit event." />
-              <CardBody className="space-y-2">
-                {deal.documents
-                  .filter((item) => !["receipt", "attachment", "signature"].includes(item.documentType))
-                  .map((item) => (
-                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 px-3 py-2.5">
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-semibold text-ink-800">
-                          v{item.versionNumber} · {DOCUMENT_LABEL[item.documentType] ?? item.documentType}
-                        </p>
-                        <p className="truncate font-mono text-[10px] text-ink-500">{item.sha256}</p>
-                        <p className="text-[10px] text-ink-400">{formatDateTime(item.createdAt)}</p>
-                      </div>
-                      <Link
-                        href={`/deals/${deal.id}/documents/${item.id}`}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-ink-200 text-ink-600 hover:bg-ink-50"
-                        aria-label={`Download ${DOCUMENT_LABEL[item.documentType] ?? item.documentType}`}
-                      >
-                        <Download className="h-3.5 w-3.5" aria-hidden />
-                      </Link>
+                      ))}
                     </div>
                   ))}
-              </CardBody>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            {isCreator && me ? (
-              <SignPanel
-                dealId={deal.id}
-                versionNumber={deal.currentVersion}
-                defaultName={me.fullName}
-                alreadySigned={mySigned}
-                canSign={openForSigning}
-              />
-            ) : (
-              <Card>
-                <CardHeader title="Your signing page" description="Sign through your private invitation link." />
-                <CardBody>
-                  <p className="text-[12px] leading-5 text-ink-600">
-                    The other party signs through the invite link sent to their email or phone. This keeps
-                    each signature tied to the contact control check.
-                  </p>
-                  {token ? (
-                    <ButtonLink href={`/invite/${token}`} className="mt-3" size="sm">
-                      Open invitation
-                    </ButtonLink>
+                  {agreement.notice ? (
+                    <Alert tone="warning" title="Important limitation">{agreement.notice}</Alert>
+                  ) : null}
+                  {!template && document ? (
+                    <Alert tone="info" title="Uploaded PDF">
+                      The uploaded file is the agreement. Open the PDF to read the full terms.
+                    </Alert>
                   ) : null}
                 </CardBody>
               </Card>
-            )}
 
-            {isCreator && template && !isClosed && deal.status !== DEAL_STATUS.EXECUTED ? (
-              <Card>
-                <CardHeader title="Amend the agreement" description="Changing terms creates a new version." />
-                <CardBody>
-                  <VersionForm dealId={deal.id} template={template} values={values} />
-                </CardBody>
-              </Card>
-            ) : null}
-
-            <Card>
-              <CardHeader title="Signing facts" />
-              <CardBody className="space-y-2 text-[11px] leading-5 text-ink-500">
-                <p>Each signature records the document hash, signer name, contact verification method, IP address, device and consent version.</p>
-                <p>A signature only covers the version shown here. If a new version is created, everyone must sign again.</p>
-                <p>Contact verification proves control of an email or phone number, not civil identity.</p>
-              </CardBody>
-            </Card>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "activity" ? (
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-          <Card>
-            <CardHeader title="Event record" description={`${deal.events.length} events in the hash-chained log.`} />
-            <CardBody>
-              <ol className="space-y-3">
-                {deal.events
-                  .slice()
-                  .reverse()
-                  .map((event) => (
-                    <li key={event.id} className="flex gap-3">
-                      <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 font-mono text-[10px] font-bold text-brand-700">
-                        {event.sequence}
-                      </span>
-                      <div className="min-w-0 border-b border-ink-100 pb-3">
-                        <p className="text-[12px] font-semibold text-ink-800">
-                          {EVENT_LABEL[event.eventType] ?? event.eventType}
-                        </p>
-                        <p className="text-[12px] leading-5 text-ink-600">{event.description}</p>
-                        <p className="mt-0.5 text-[10px] text-ink-400">
-                          {formatDateTime(event.createdAt)}
-                          {event.actorPartyId
-                            ? ` · ${deal.parties.find((item) => item.id === event.actorPartyId)?.fullName ?? "Party"}`
-                            : ""}
-                        </p>
-                        <p className="truncate font-mono text-[9px] text-ink-300">hash {event.eventHash}</p>
-                      </div>
-                    </li>
-                  ))}
-              </ol>
-            </CardBody>
-          </Card>
-
-          <CommentThread
-            dealId={deal.id}
-            comments={deal.comments}
-            parties={deal.parties}
-            currentPartyId={party?.id ?? null}
-            isClosed={isClosed}
-          />
-        </div>
-      ) : null}
-
-      {tab === "payments" ? (
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader title="Payment summary" description="Payments are recorded by parties; receipts are optional evidence." />
-              <CardBody className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div>
-                  <p className="text-[10px] uppercase text-ink-400">Total</p>
-                  <p className="text-sm font-bold">{summary.total === null ? "Not set" : formatNaira(summary.total)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase text-ink-400">Paid</p>
-                  <p className="text-sm font-bold text-brand-800">{formatNaira(summary.paid)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase text-ink-400">Outstanding</p>
-                  <p className="text-sm font-bold">{summary.outstanding === null ? "Not set" : formatNaira(summary.outstanding)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase text-ink-400">Status</p>
-                  <Badge tone={summary.status === "PAID" ? "success" : summary.status === "UNPAID" ? "danger" : "warning"}>
-                    {titleCase(summary.status)}
-                  </Badge>
-                </div>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader
-                title="Payments"
-                description={`${activePayments.length} active · ${deal.payments.length} total`}
-              />
-              <CardBody className="space-y-2">
-                {deal.payments.length === 0 ? (
-                  <p className="text-[12px] text-ink-500">No payments recorded yet.</p>
-                ) : (
-                  deal.payments.map((payment) => {
-                    const voided = Boolean(payment.voidedAt);
-                    const canManage =
-                      !isClosed &&
-                      !voided &&
-                      (currentUser.isAdmin ||
-                        isCreator ||
-                        payment.recordedByPartyId === me?.id);
-                    return (
-                      <div
-                        key={payment.id}
-                        className={cn(
-                          "rounded-xl border border-ink-100 p-3",
-                          voided && "border-red-200 bg-red-50/30",
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className={cn("text-[14px] font-bold text-ink-900", voided && "line-through decoration-red-300")}>
-                              {formatNaira(payment.amount)}
-                            </p>
-                            <p className="text-[11px] text-ink-500">
-                              {formatDate(payment.paymentDate)} · {payment.paymentMethod}
-                            </p>
-                          </div>
-                          {voided ? (
-                            <Badge tone="danger">Voided</Badge>
-                          ) : (
-                            <Badge tone="warning">{titleCase(payment.verificationStatus)}</Badge>
-                          )}
-                        </div>
-                        <p className="mt-1 text-[11px] text-ink-500">
-                          Recorded by {payment.recordedBy.fullName}
-                          {payment.reference ? ` · Ref ${payment.reference}` : ""}
-                        </p>
-                        {payment.notes ? <p className="mt-1 text-[11px] text-ink-600">{payment.notes}</p> : null}
-                        {payment.lastEditedAt ? (
-                          <p className="mt-1 text-[10px] text-ink-400">
-                            Edited {formatDateTime(payment.lastEditedAt)}
-                            {payment.lastEditedByPartyId
-                              ? ` by ${deal.parties.find((item) => item.id === payment.lastEditedByPartyId)?.fullName ?? "Party"}`
-                              : ""}
-                          </p>
-                        ) : null}
-                        {voided ? (
-                          <p className="mt-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-[10px] leading-5 text-red-800">
-                            Voided {formatDateTime(payment.voidedAt)}
-                            {payment.voidedByPartyId
-                              ? ` by ${deal.parties.find((item) => item.id === payment.voidedByPartyId)?.fullName ?? "Party"}`
-                              : ""}
-                            {payment.voidReason ? ` · ${payment.voidReason}` : ""}. Retained in the
-                            audit record.
-                          </p>
-                        ) : null}
-                        {payment.receipt ? (
-                          <a
-                            href={`/deals/${deal.id}/documents/${payment.receipt.id}`}
-                            className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700"
-                          >
-                            <FileText className="h-3 w-3" aria-hidden />
-                            Receipt
-                          </a>
-                        ) : null}
-                        <PaymentRecordActions
-                          dealId={deal.id}
-                          payment={{
-                            id: payment.id,
-                            amount: payment.amount,
-                            paymentDateInput: toDateInputValue(payment.paymentDate),
-                            paymentMethod: payment.paymentMethod,
-                            reference: payment.reference,
-                            notes: payment.notes,
-                            revision: payment.revision,
-                          }}
-                          canManage={canManage}
-                        />
-                      </div>
-                    );
-                  })
-                )}
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader title="Obligations" description="Tasks and payments with due dates." />
-              <CardBody className="space-y-2">
-                {deal.obligations.length === 0 ? (
-                  <p className="text-[12px] text-ink-500">No obligations recorded.</p>
-                ) : (
-                  deal.obligations.map((obligation) => {
-                    const overdue = isObligationOverdue(obligation);
-                    const cancelled = obligation.status === OBLIGATION_STATUS.CANCELLED;
-                    const canEdit =
-                      !isClosed &&
-                      !cancelled &&
-                      (currentUser.isAdmin ||
-                        isCreator ||
-                        obligation.createdByPartyId === me?.id ||
-                        obligation.responsiblePartyId === me?.id);
-                    return (
-                      <div
-                        key={obligation.id}
-                        className={cn(
-                          "rounded-xl border border-ink-100 p-3",
-                          cancelled && "border-red-200 bg-red-50/30",
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className={cn("text-[12px] font-semibold text-ink-900", cancelled && "line-through decoration-red-300")}>
-                              {obligation.title}
-                            </p>
-                            <p className="text-[11px] text-ink-500">
-                              {obligation.amount ? formatNaira(obligation.amount) : obligation.kind}
-                              {obligation.dueAt ? ` · due ${formatDate(obligation.dueAt)}` : ""}
-                              {obligation.responsiblePartyId
-                                ? ` · ${deal.parties.find((item) => item.id === obligation.responsiblePartyId)?.fullName ?? "Party"}`
-                                : ""}
-                            </p>
-                            {obligation.description ? <p className="mt-1 text-[11px] text-ink-600">{obligation.description}</p> : null}
-                            {obligation.lastEditedAt ? (
-                              <p className="mt-1 text-[10px] text-ink-400">
-                                Edited {formatDateTime(obligation.lastEditedAt)}
-                                {obligation.lastEditedByPartyId
-                                  ? ` by ${deal.parties.find((item) => item.id === obligation.lastEditedByPartyId)?.fullName ?? "Party"}`
-                                  : ""}
-                              </p>
-                            ) : null}
-                            {cancelled ? (
-                              <p className="mt-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-[10px] leading-5 text-red-800">
-                                Cancelled {formatDateTime(obligation.cancelledAt)}
-                                {obligation.cancelledByPartyId
-                                  ? ` by ${deal.parties.find((item) => item.id === obligation.cancelledByPartyId)?.fullName ?? "Party"}`
-                                  : ""}
-                                {obligation.cancelReason ? ` · ${obligation.cancelReason}` : ""}. Retained in
-                                the audit record.
-                              </p>
-                            ) : null}
-                          </div>
-                          <Badge
-                            tone={
-                              cancelled
-                                ? "neutral"
-                                : obligation.status === OBLIGATION_STATUS.COMPLETED
-                                  ? "success"
-                                  : obligation.status === OBLIGATION_STATUS.DISPUTED
-                                    ? "danger"
-                                    : overdue
-                                      ? "danger"
-                                      : "warning"
-                            }
-                          >
-                            {titleCase(obligation.status)}
-                          </Badge>
-                        </div>
-                        <ObligationRecordActions
-                          dealId={deal.id}
-                          obligation={{
-                            id: obligation.id,
-                            title: obligation.title,
-                            description: obligation.description,
-                            amount: obligation.amount,
-                            dueAtInput: toDateInputValue(obligation.dueAt),
-                            responsiblePartyId: obligation.responsiblePartyId,
-                            status: obligation.status,
-                            revision: obligation.revision,
-                          }}
-                          parties={deal.parties.map((item) => ({
-                            id: item.id,
-                            fullName: item.fullName,
-                            role: item.role,
-                          }))}
-                          canEdit={canEdit}
-                          isClosed={isClosed}
-                        />
-                      </div>
-                    );
-                  })
-                )}
-              </CardBody>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            {!isClosed ? (
-              <>
+              <div className="grid gap-4">
                 <Card>
-                  <CardHeader title="Record a payment" description="Add a bank transfer, cash payment or other receipt." />
-                  <CardBody>
-                    <PaymentForm dealId={deal.id} />
+                  <CardHeader title="Signatures" description="Per-party status for the current version." />
+                  <CardBody className="space-y-2.5">
+                    {partyStates.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between gap-3 rounded-[18px] bg-surface-muted p-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-ink">
+                            {p.fullName}{p.userId === currentUser.id ? " (you)" : ""}
+                          </p>
+                          <p className="text-[11px] text-ink-muted">{p.role} · {p.state}</p>
+                          <p className="text-[10px] text-ink-subtle">Viewed: not tracked yet</p>
+                        </div>
+                        {p.signed ? (
+                          <span className="inline-flex items-center gap-1 rounded-pill bg-sky-100 px-2.5 py-1 text-[11px] font-semibold text-sky-700">
+                            <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+                            Signed
+                          </span>
+                        ) : (
+                          <span className="rounded-pill bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">Pending</span>
+                        )}
+                      </div>
+                    ))}
                   </CardBody>
                 </Card>
 
-                <Card>
-                  <CardHeader title="Add an obligation" description="Track a task or amount with a due date." />
-                  <CardBody>
-                    <ObligationForm
+                <div className="space-y-4">
+                  {isCreator && me ? (
+                    <SignPanel
                       dealId={deal.id}
-                      parties={deal.parties.map((item) => ({ id: item.id, fullName: item.fullName, role: item.role }))}
+                      versionNumber={deal.currentVersion}
+                      defaultName={me.fullName}
+                      alreadySigned={mySigned}
+                      canSign={openForSigning}
                     />
+                  ) : null}
+                  {isCreator && template && !isClosed && deal.status !== DEAL_STATUS.EXECUTED ? (
+                    <Card>
+                      <CardHeader title="Amend terms" description="Changing terms creates a new version." />
+                      <CardBody>
+                        <VersionForm dealId={deal.id} template={template} values={values} />
+                      </CardBody>
+                    </Card>
+                  ) : null}
+                </div>
+              </div>
+
+              <div id="invite" className="grid gap-4">
+                <Card>
+                  <CardHeader title="Share & invite" description={otherParty ? `${otherParty.fullName}` : "No other party on this agreement."} />
+                  <CardBody className="space-y-3">
+                    <div className="flex flex-col gap-3 rounded-[18px] bg-surface-muted p-3 text-[12px] sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-ink">{activeInvitation ? "Active invitation" : "No active invitation"}</p>
+                        <p className="text-[11px] text-ink-muted">
+                          {activeInvitation ? `Expires ${formatDate(activeInvitation.expiresAt)} · opens ${activeInvitation.openCount}` : "Create a link to invite or re-share access."}
+                        </p>
+                      </div>
+                      <Badge tone={activeInvitation ? "success" : "neutral"} className="w-fit shrink-0">{activeInvitation?.status ?? "NONE"}</Badge>
+                    </div>
+                    {inviteUrl ? (
+                      <div className="rounded-[18px] bg-violet-50 p-3">
+                        <p className="text-[11px] font-bold text-violet-700">New link (shown once)</p>
+                        <p className="mt-1 break-all font-mono text-[10px] text-ink">{inviteUrl}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <CopyButton value={inviteUrl} />
+                          <a href={inviteUrl} target="_blank" rel="noreferrer" className={buttonStyles({ variant: "outline", size: "sm" })}>
+                            <Link2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Open
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[12px] leading-5 text-ink-muted">For security, existing links are never shown again. Create a new link if needed.</p>
+                    )}
+                    {isCreator && !isClosed && otherParty ? (
+                      <div className="flex flex-wrap gap-2">
+                        <form action={sendInvitationAction}>
+                          <input type="hidden" name="dealId" value={deal.id} />
+                          <button type="submit" className={buttonStyles({ size: "sm" })}>
+                            <Send className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                            {otherPartySigned ? (activeInvitation ? "Create new access link" : "Create access link") : (activeInvitation ? "Create new link" : "Create invitation link")}
+                          </button>
+                        </form>
+                        {activeInvitation ? (
+                          <form action={revokeInvitationAction}>
+                            <input type="hidden" name="dealId" value={deal.id} />
+                            <button type="submit" className={buttonStyles({ variant: "outline", size: "sm" })}>Revoke active links</button>
+                          </form>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </CardBody>
                 </Card>
-              </>
-            ) : (
-              <Alert tone="info">Closed deals are read-only. You can still download the evidence pack.</Alert>
-            )}
-          </div>
-        </div>
-      ) : null}
 
-      {tab === "invite" ? (
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader
-                title={otherPartySigned ? "Share access with the other party" : "Invite the other party"}
-                description={otherParty ? `${otherParty.fullName} · ${otherParty.email ?? otherParty.phoneNumber ?? "No contact"}` : "No other party on this deal."}
-              />
-              <CardBody className="space-y-3">
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 p-3">
-                  <div>
-                    <p className="text-[12px] font-semibold text-ink-800">
-                      {activeInvitation ? "Active invitation" : "No active invitation"}
-                    </p>
-                    <p className="text-[11px] text-ink-500">
-                      {activeInvitation
-                        ? `Expires ${formatDate(activeInvitation.expiresAt)} · ${activeInvitation.status}`
-                        : "Creating a new invitation revokes the previous link."}
-                    </p>
-                  </div>
-                  <Badge tone={activeInvitation ? "success" : "neutral"}>{activeInvitation?.status ?? "NONE"}</Badge>
-                </div>
+                <WitnessPanel
+                  dealId={deal.id}
+                  parties={deal.parties.map((item) => ({ id: item.id, fullName: item.fullName, role: item.role, isCreator: item.isCreator }))}
+                  witnesses={witnessViews}
+                  canManage={isCreator || currentUser.isAdmin}
+                  viewerPartyId={me?.id ?? null}
+                  disabled={isClosed || Boolean(deal.executedAt) || deal.status === DEAL_STATUS.EXECUTED}
+                />
+              </div>
 
-                {inviteUrl ? (
-                  <div className="rounded-xl border border-brand-200 bg-brand-50 p-3">
-                    <p className="text-[11px] font-bold text-brand-900">
-                      {otherPartySigned ? "New access link" : "New invitation link"}
-                    </p>
-                    <p className="mt-1 break-all font-mono text-[10px] text-brand-800">{inviteUrl}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <CopyButton value={inviteUrl} />
-                      <a
-                        href={inviteUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={buttonStyles({ variant: "outline", size: "sm" })}
-                      >
-                        <Link2 className="h-3.5 w-3.5" aria-hidden />
-                        Open link
-                      </a>
-                    </div>
-                    <p className="mt-2 text-[10px] leading-4 text-brand-800/70">
-                      {otherPartySigned
-                        ? "This access link is only shown in this response. It preserves the existing signature and does not reopen signing."
-                        : "This link is only shown in this response. Store it or send it now. The other party will still need a one-time code sent to their email or phone."}
-                    </p>
-                  </div>
-                ) : (
-                  <Alert tone="info">
-                    {otherPartySigned
-                      ? "For security, existing links are never shown again. Create a new access link if the other party needs to return. Their signature and the deal status are unchanged."
-                      : "For security, existing invitation links are never shown again. Create a new invitation if you need to resend the link."}
-                  </Alert>
-                )}
-
-                {isCreator && !isClosed && otherParty ? (
-                  <div className="flex flex-wrap gap-2">
-                    <form action={sendInvitationAction}>
-                      <input type="hidden" name="dealId" value={deal.id} />
-                      <button type="submit" className={buttonStyles({ size: "sm" })}>
-                        <Send className="h-4 w-4" aria-hidden />
-                        {otherPartySigned
-                          ? activeInvitation
-                            ? "Create new access link"
-                            : "Create access link"
-                          : activeInvitation
-                            ? "Create new link"
-                            : "Create invitation link"}
-                      </button>
-                    </form>
-                    {activeInvitation ? (
-                      <form action={revokeInvitationAction}>
+              {isCreator && !isClosed ? (
+                <Card>
+                  <CardHeader title="Close this agreement" description="Actions are recorded in the audit trail." />
+                  <CardBody className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    {deal.status !== DEAL_STATUS.EXECUTED && deal.status !== DEAL_STATUS.ACTIVE ? (
+                      <form action={cancelDealAction} className="flex flex-1 flex-col gap-2 sm:min-w-[240px]">
+                        <input type="hidden" name="dealId" value={deal.id} />
+                        <input name="reason" placeholder="Reason (optional)" className="w-full rounded-pill bg-surface-muted px-4 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                        <button type="submit" className={buttonStyles({ variant: "outline", size: "sm", className: "text-danger-700" })}>
+                          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Cancel
+                        </button>
+                      </form>
+                    ) : (
+                      <form action={voidDealAction} className="flex flex-1 flex-col gap-2 sm:min-w-[240px]">
+                        <input type="hidden" name="dealId" value={deal.id} />
+                        <input name="reason" placeholder="Reason for voiding (required)" className="w-full rounded-pill bg-surface-muted px-4 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-violet-300" required />
+                        <button type="submit" className={buttonStyles({ variant: "danger", size: "sm" })}>Void executed agreement</button>
+                      </form>
+                    )}
+                    {[DEAL_STATUS.EXECUTED, DEAL_STATUS.ACTIVE, DEAL_STATUS.OVERDUE].includes(deal.status as never) ? (
+                      <form action={markCompletedAction}>
                         <input type="hidden" name="dealId" value={deal.id} />
                         <button type="submit" className={buttonStyles({ variant: "outline", size: "sm" })}>
-                          Revoke active links
+                          <PackageCheck className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Mark completed
                         </button>
                       </form>
                     ) : null}
-                  </div>
-                ) : null}
-              </CardBody>
-            </Card>
+                  </CardBody>
+                </Card>
+              ) : null}
+            </div>
+          ) : null}
 
-            <WitnessPanel
-              dealId={deal.id}
-              parties={deal.parties.map((item) => ({
-                id: item.id,
-                fullName: item.fullName,
-                role: item.role,
-                isCreator: item.isCreator,
-              }))}
-              witnesses={witnessViews}
-              canManage={isCreator || currentUser.isAdmin}
-              viewerPartyId={me?.id ?? null}
-              disabled={isClosed || Boolean(deal.executedAt) || deal.status === DEAL_STATUS.EXECUTED}
-            />
-
-            <Card>
-              <CardHeader title="Invitation history" />
-              <CardBody className="space-y-2">
-                {deal.invitations.length === 0 ? (
-                  <p className="text-[12px] text-ink-500">No invitations created yet.</p>
-                ) : (
-                  deal.invitations.map((invitation) => (
-                    <div key={invitation.id} className="flex items-center justify-between gap-2 rounded-lg border border-ink-100 px-3 py-2 text-[11px]">
-                      <span className="text-ink-500">{formatDateTime(invitation.createdAt)}</span>
-                      <span className="text-ink-500">opens {invitation.openCount}</span>
-                      <Badge tone={invitation.revokedAt ? "neutral" : invitation.verifiedAt ? "success" : "warning"}>
-                        {invitation.revokedAt ? "REVOKED" : invitation.status}
-                      </Badge>
-                    </div>
-                  ))
-                )}
-              </CardBody>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            <Card>
-              <CardHeader title="How their signing works" />
-              <CardBody className="space-y-3 text-[12px] leading-5 text-ink-600">
-                <p className="flex gap-2"><UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />They open the link and request a one-time code sent to their email or phone.</p>
-                <p className="flex gap-2"><FileCheck2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />They review the exact current version and see its hash.</p>
-                <p className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />They accept, request a change, decline or sign with consent.</p>
-                <p className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />When everyone required has signed, the deal locks and execution artifacts are generated.</p>
-              </CardBody>
-            </Card>
-
-            {executed && seal ? (
-              <Card className="border-brand-200 bg-brand-50">
-                <CardHeader title="Executed record" description="Ready to share or download." />
+          {tab === "negotiation" ? (
+            <div className="space-y-4">
+              {deal.status === DEAL_STATUS.CHANGE_REQUESTED ? (
+                <Alert tone="warning" title="Change requested">
+                  Review comments below, then amend terms in the Terms tab to create a new version.
+                </Alert>
+              ) : null}
+              <CommentThread
+                dealId={deal.id}
+                comments={deal.comments}
+                parties={deal.parties}
+                currentPartyId={party?.id ?? null}
+                isClosed={isClosed}
+              />
+              <Card>
+                <CardHeader title="Version history" description="Terms changes create a new version with its own hash." />
                 <CardBody className="space-y-2">
-                  <ButtonLink href={`/deals/${deal.id}/evidence`} className="w-full" size="sm">
-                    <Download className="h-4 w-4" aria-hidden />
-                    Download evidence pack
-                  </ButtonLink>
-                  <Link href={`/verify/${seal.verificationToken}`} className={buttonStyles({ variant: "outline", size: "sm", className: "w-full" })}>
-                    <QrCode className="h-4 w-4" aria-hidden />
-                    Verification page
-                  </Link>
-                  {isCreator ? (
-                    <ExecutionArtifactsButton dealId={deal.id} />
-                  ) : null}
+                  {deal.documents.filter((item) => !["receipt", "attachment", "signature", "certificate"].includes(item.documentType)).length === 0 ? (
+                    <p className="text-[13px] text-ink-muted">No document versions yet.</p>
+                  ) : (
+                    deal.documents
+                      .filter((item) => !["receipt", "attachment", "signature", "certificate"].includes(item.documentType))
+                      .map((item) => (
+                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-[18px] bg-surface-muted px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-semibold text-ink">v{item.versionNumber} · {DOCUMENT_LABEL[item.documentType] ?? item.documentType}</p>
+                            <p className="truncate font-mono text-[10px] text-ink-subtle">{shortHash(item.sha256, 24)}</p>
+                            <p className="text-[10px] text-ink-muted">{fmtWAT(item.createdAt)}</p>
+                            {item.changeSummary ? <p className="mt-1 whitespace-pre-line text-[11px] text-ink-muted">{item.changeSummary}</p> : null}
+                          </div>
+                          <Link href={`/deals/${deal.id}/documents/${item.id}`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-raised text-ink shadow-[var(--shadow-soft)]" aria-label="Download version">
+                            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                          </Link>
+                        </div>
+                      ))
+                  )}
                 </CardBody>
               </Card>
-            ) : null}
+              <div className="rounded-card bg-surface-raised p-4 text-[12px] leading-5 text-ink-muted shadow-[var(--shadow-soft)]">
+                <p className="font-semibold text-ink">Proposal workflow (v1)</p>
+                <p className="mt-1">Use comments to propose and discuss changes. The creator can amend terms to publish a new version; all parties must sign the latest version. Per-clause accept/reject and automatic version-on-accept are not modeled yet — change requests are tracked in comments and audit events.</p>
+              </div>
+            </div>
+          ) : null}
 
-            <Card>
-              <CardHeader title="Reminder" />
-              <CardBody className="space-y-2 text-[11px] leading-5 text-ink-500">
-                <p className="flex gap-2"><Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />Invitation links expire after 14 days.</p>
-                <p className="flex gap-2"><MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />Use comments to clarify terms before signing; material changes require a new version.</p>
-                <p className="flex gap-2"><Banknote className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />Do not treat this record as a guarantee of payment or recovery.</p>
-              </CardBody>
-            </Card>
-          </div>
+          {tab === "evidence" ? (
+            <div className="space-y-4">
+              <div className="grid gap-4">
+                <Card>
+                  <CardHeader title="Execution artifacts" description="Sealed record, certificate, and downloads." />
+                  <CardBody className="space-y-3">
+                    {seal ? (
+                      <>
+                        <div className="space-y-1.5 text-[12px]">
+                          <div className="flex justify-between gap-2"><span className="text-ink-muted">Serial</span><span className="font-mono font-semibold text-ink">{seal.serialNumber}</span></div>
+                          <div className="flex justify-between gap-2"><span className="text-ink-muted">Status</span><Badge tone={seal.status === "ACTIVE" ? "success" : "danger"}>{seal.status}</Badge></div>
+                          <div className="flex justify-between gap-2"><span className="text-ink-muted">Issued</span><span className="font-semibold text-ink">{fmtWAT(seal.issuedAt)}</span></div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {executed ? <Link href={`/deals/${deal.id}/documents/${executed.id}`} className={buttonStyles({ size: "sm" })}><Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />Executed copy</Link> : null}
+                          {certificate ? <Link href={`/deals/${deal.id}/documents/${certificate.id}`} className={buttonStyles({ variant: "outline", size: "sm" })}><FileText className="h-4 w-4" strokeWidth={1.5} aria-hidden />Certificate</Link> : null}
+                          <Link href={`/deals/${deal.id}/evidence`} className={buttonStyles({ variant: "outline", size: "sm" })}><Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />Evidence pack</Link>
+                          <Link href={`/verify/${seal.verificationToken}`} className={buttonStyles({ variant: "outline", size: "sm" })}><QrCode className="h-4 w-4" strokeWidth={1.5} aria-hidden />Verify</Link>
+                        </div>
+                        {isCreator ? <ExecutionArtifactsButton dealId={deal.id} /> : null}
+                      </>
+                    ) : (
+                      <EmptyState
+                        icon={<ShieldCheck className="h-5 w-5" strokeWidth={1.5} aria-hidden />}
+                        title="No sealed record yet"
+                        description="A seal, certificate, and evidence pack are generated after all required parties and witnesses complete signing."
+                        action={executionReady && isCreator ? <ExecutionArtifactsButton dealId={deal.id} /> : undefined}
+                      />
+                    )}
+                  </CardBody>
+                </Card>
+
+                <Card>
+                  <CardHeader title="Documents & hashes" description="Stored files and their SHA-256 hashes." />
+                  <CardBody className="space-y-2">
+                    {deal.documents.length === 0 ? (
+                      <p className="text-[13px] text-ink-muted">No documents stored yet.</p>
+                    ) : (
+                      deal.documents.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between gap-3 rounded-[18px] bg-surface-muted px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-semibold text-ink">{DOCUMENT_LABEL[doc.documentType] ?? doc.documentType} · v{doc.versionNumber}</p>
+                            <p className="truncate font-mono text-[10px] text-ink-subtle">{shortHash(doc.sha256, 28)}</p>
+                          </div>
+                          <Link href={`/deals/${deal.id}/documents/${doc.id}`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-raised text-ink shadow-[var(--shadow-soft)]" aria-label="Download document">
+                            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                          </Link>
+                        </div>
+                      ))
+                    )}
+                  </CardBody>
+                </Card>
+              </div>
+
+              <div className="grid gap-4">
+                <Card>
+                  <CardHeader title="Payments" description="Party-recorded payments and receipts." />
+                  <CardBody className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2 text-[12px]">
+                      <div className="rounded-[16px] bg-surface-muted p-2.5"><p className="text-ink-muted">Total</p><p className="font-bold text-ink">{summary.total === null ? "—" : formatNaira(summary.total)}</p></div>
+                      <div className="rounded-[16px] bg-sky-50 p-2.5"><p className="text-sky-700">Paid</p><p className="font-bold text-ink">{formatNaira(summary.paid)}</p></div>
+                      <div className="rounded-[16px] bg-amber-50 p-2.5"><p className="text-amber-700">Outstanding</p><p className="font-bold text-ink">{summary.outstanding === null ? "—" : formatNaira(summary.outstanding)}</p></div>
+                    </div>
+                    {deal.payments.length === 0 ? (
+                      <p className="text-[13px] text-ink-muted">No payments recorded yet.</p>
+                    ) : (
+                      deal.payments.map((payment) => {
+                        const voided = Boolean(payment.voidedAt);
+                        const canManage =
+                          !isClosed &&
+                          !voided &&
+                          (currentUser.isAdmin || isCreator || payment.recordedByPartyId === me?.id);
+                        return (
+                          <div key={payment.id} className={cn("rounded-[18px] bg-surface-muted p-3", voided && "opacity-70")}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className={cn("text-[14px] font-bold text-ink", voided && "line-through")}>{formatNaira(payment.amount)}</p>
+                                <p className="text-[11px] text-ink-muted">{formatDate(payment.paymentDate)} · {payment.paymentMethod}</p>
+                              </div>
+                              <Badge tone={voided ? "danger" : "warning"}>{voided ? "Voided" : payment.verificationStatus}</Badge>
+                            </div>
+                            {payment.receipt ? (
+                              <a href={`/deals/${deal.id}/documents/${payment.receipt.id}`} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700">
+                                <FileText className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Receipt
+                              </a>
+                            ) : null}
+                            <PaymentRecordActions
+                              dealId={deal.id}
+                              payment={{ id: payment.id, amount: payment.amount, paymentDateInput: toDateInputValue(payment.paymentDate), paymentMethod: payment.paymentMethod, reference: payment.reference, notes: payment.notes, revision: payment.revision }}
+                              canManage={canManage}
+                            />
+                          </div>
+                        );
+                      })
+                    )}
+                    {!isClosed ? (
+                      <div className="pt-2">
+                        <p className="mb-2 text-[12px] font-semibold text-ink">Record a payment</p>
+                        <PaymentForm dealId={deal.id} />
+                      </div>
+                    ) : null}
+                  </CardBody>
+                </Card>
+
+                <Card>
+                  <CardHeader title="Obligations" description="Tasks and amounts with due dates." />
+                  <CardBody className="space-y-3">
+                    {deal.obligations.length === 0 ? (
+                      <p className="text-[13px] text-ink-muted">No obligations recorded.</p>
+                    ) : (
+                      deal.obligations.map((obligation) => {
+                        const overdue = isObligationOverdue(obligation);
+                        const cancelled = obligation.status === OBLIGATION_STATUS.CANCELLED;
+                        const canEdit =
+                          !isClosed &&
+                          !cancelled &&
+                          (currentUser.isAdmin || isCreator || obligation.createdByPartyId === me?.id || obligation.responsiblePartyId === me?.id);
+                        return (
+                          <div key={obligation.id} className={cn("rounded-[18px] bg-surface-muted p-3", cancelled && "opacity-70")}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className={cn("text-[13px] font-semibold text-ink", cancelled && "line-through")}>{obligation.title}</p>
+                                <p className="text-[11px] text-ink-muted">
+                                  {obligation.amount ? formatNaira(obligation.amount) : obligation.kind}
+                                  {obligation.dueAt ? ` · due ${formatDate(obligation.dueAt)}` : ""}
+                                </p>
+                              </div>
+                              <Badge tone={cancelled ? "neutral" : obligation.status === OBLIGATION_STATUS.COMPLETED ? "success" : overdue ? "danger" : "warning"}>
+                                {cancelled ? "Cancelled" : overdue ? "Overdue" : obligation.status}
+                              </Badge>
+                            </div>
+                            <ObligationRecordActions
+                              dealId={deal.id}
+                              obligation={{ id: obligation.id, title: obligation.title, description: obligation.description, amount: obligation.amount, dueAtInput: toDateInputValue(obligation.dueAt), responsiblePartyId: obligation.responsiblePartyId, status: obligation.status, revision: obligation.revision }}
+                              parties={deal.parties.map((item) => ({ id: item.id, fullName: item.fullName, role: item.role }))}
+                              canEdit={canEdit}
+                              isClosed={isClosed}
+                            />
+                          </div>
+                        );
+                      })
+                    )}
+                    {!isClosed ? (
+                      <div className="pt-2">
+                        <p className="mb-2 text-[12px] font-semibold text-ink">Add an obligation</p>
+                        <ObligationForm dealId={deal.id} parties={deal.parties.map((item) => ({ id: item.id, fullName: item.fullName, role: item.role }))} />
+                      </div>
+                    ) : null}
+                  </CardBody>
+                </Card>
+              </div>
+
+              <div className="rounded-card bg-surface-raised p-4 text-[12px] leading-5 text-ink-muted shadow-[var(--shadow-soft)]">
+                <p className="font-semibold text-ink">Evidence vault uploads (coming soon)</p>
+                <p className="mt-1">Uploading receipts, screenshots, and exported chats into a per-agreement evidence vault is coming soon. Payment receipts recorded here are already stored as evidence records.</p>
+              </div>
+            </div>
+          ) : null}
+
+          {tab === "audit" ? (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader title="Audit trail" description={`${deal.events.length} recorded events · hash-chained log.`} />
+                <CardBody>
+                  {timeline.length === 0 ? (
+                    <EmptyState icon={<Clock className="h-5 w-5" strokeWidth={1.5} aria-hidden />} title="No events recorded yet" description="Agreement events will appear here as they happen." />
+                  ) : (
+                    <ol className="relative space-y-0">
+                      {timeline.map((event, idx) => (
+                        <li key={event.id} className="relative flex gap-3 pb-5 last:pb-0">
+                          <div className="flex flex-col items-center">
+                            <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-700">
+                              {event.sequence}
+                            </span>
+                            {idx < timeline.length - 1 ? <span className="mt-1 w-px flex-1 bg-violet-100" /> : null}
+                          </div>
+                          <div className="min-w-0 flex-1 rounded-[18px] bg-surface-muted p-3">
+                            <p className="text-[13px] font-semibold text-ink">{EVENT_LABEL[event.eventType] ?? event.eventType}</p>
+                            <p className="mt-0.5 text-[12px] leading-5 text-ink-muted">{event.description}</p>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-ink-subtle">
+                              <span>{fmtWAT(event.createdAt)}</span>
+                              {event.actorPartyId ? <span>by {deal.parties.find((p) => p.id === event.actorPartyId)?.fullName ?? "Party"}</span> : null}
+                              <span className="font-mono">hash {shortHash(event.eventHash, 16)}</span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </CardBody>
+              </Card>
+              <Alert tone="info" title="Event coverage (existing log)">
+                Logged today: deal/document creation &amp; versions, invitations/access links (create/deliver/open/accept/decline), contact verification, account linking, comments/edits/retractions, change requests, signature intent &amp; signatures, witness lifecycle, execution/completion/cancel/void, payments/receipts/obligations (create/update/void/cancel/complete/dispute), evidence pack generation, seal revocation, admin actions. Not yet logged as DealEvents: per-party document &quot;viewed&quot; timestamps and granular OTP send/fail attempts (OTP records exist separately).
+              </Alert>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+
+        <aside className="space-y-4 xl:sticky xl:top-8 xl:self-start">
+          <Card>
+            <CardHeader title="Participants" description="Roles and per-party state." />
+            <CardBody className="space-y-2.5">
+              {partyStates.map((p) => (
+                <div key={p.id} className="flex items-start justify-between gap-2 rounded-[18px] bg-surface-muted p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold text-ink">{p.fullName}</p>
+                    <p className="text-[11px] text-ink-muted">{p.role}{p.isCreator ? " · Creator" : ""}</p>
+                    <p className="text-[11px] text-ink-muted">Auth: {AUTH_LEVEL_LABEL[p.authenticationLevel] ?? "—"}</p>
+                    <p className="mt-0.5 text-[10px] text-ink-subtle">Viewed: not tracked yet</p>
+                  </div>
+                  <span className={cn("shrink-0 rounded-pill px-2.5 py-1 text-[10px] font-semibold", p.signed ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-700")}>
+                    {p.state}
+                  </span>
+                </div>
+              ))}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Verification" description="Seal and hash status." />
+            <CardBody className="space-y-2 text-[12px]">
+              {seal ? (
+                <>
+                  <div className="flex items-center justify-between"><span className="text-ink-muted">Status</span><Badge tone={seal.status === "ACTIVE" ? "success" : "danger"}>{seal.status}</Badge></div>
+                  <div className="flex items-center justify-between gap-2"><span className="text-ink-muted">Serial</span><span className="font-mono font-semibold text-ink">{seal.serialNumber}</span></div>
+                  {executed ? (
+                    <div>
+                      <p className="mb-1 text-[10px] font-medium text-ink-muted">Sealed hash</p>
+                      <HashChip hash={executed.sha256} />
+                    </div>
+                  ) : null}
+                  <Link href={`/verify/${seal.verificationToken}`} className="mt-1 inline-flex items-center gap-1 text-[12px] font-semibold text-violet-700">
+                    Open verification <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p className="text-ink-muted">Not sealed yet. A verifiable hash and certificate are issued after all required signatures.</p>
+                  {document ? (
+                    <div>
+                      <p className="mb-1 text-[10px] font-medium text-ink-muted">Current version hash</p>
+                      <HashChip hash={document.sha256} />
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card className="bg-violet-50">
+            <CardHeader title="Next action" />
+            <CardBody className="space-y-3">
+              <p className="text-[13px] font-medium text-ink">{nextAction.label}</p>
+              <p className="text-[12px] leading-5 text-ink-muted">
+                {progress.signed}/{progress.required} signatures · {progress.witnessesAttested}/{progress.witnessesRequired} witnesses
+              </p>
+              <ButtonLink href={nextAction.href} size="sm">
+                Continue <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+              </ButtonLink>
+              <div className="pt-1 text-[11px] leading-5 text-ink-muted">
+                <p className="inline-flex items-center gap-1"><UserCheck className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Identity is contact-verified (email/phone), not civil ID.</p>
+                <p className="mt-1 inline-flex items-center gap-1"><Banknote className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Records do not guarantee payment or recovery.</p>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Quick facts" />
+            <CardBody className="space-y-2 text-[12px]">
+              {[
+                ["Current version", String(deal.currentVersion)],
+                ["Created", formatDate(deal.createdAt)],
+                ["Executed", deal.executedAt ? fmtWAT(deal.executedAt) : "Not yet"],
+                ["Template", template?.name ?? "Uploaded PDF"],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-start justify-between gap-3">
+                  <span className="text-ink-muted">{label}</span>
+                  <span className="text-right font-semibold text-ink">{value}</span>
+                </div>
+              ))}
+              {executionReady && (!executed || !seal || !certificate) && isCreator ? (
+                <div className="pt-2"><ExecutionArtifactsButton dealId={deal.id} /></div>
+              ) : null}
+            </CardBody>
+          </Card>
+        </aside>
+      </div>
     </div>
   );
 }

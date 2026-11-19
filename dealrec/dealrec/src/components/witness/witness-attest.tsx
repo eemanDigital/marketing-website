@@ -35,7 +35,7 @@ export function WitnessAttest({
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <FileSignature className="h-4 w-4 text-brand-600" aria-hidden />
+            <FileSignature className="h-4 w-4 text-violet-600" aria-hidden />
             Attest as a witness
           </span>
         }
@@ -60,7 +60,7 @@ export function WitnessAttest({
             </Field>
           </div>
           <div>
-            <p className="mb-1.5 text-sm font-semibold text-ink-800">Your signature</p>
+            <p className="mb-1.5 text-sm font-semibold text-ink">Your signature</p>
             <SignatureField fullName={defaultName} />
           </div>
           <Checkbox

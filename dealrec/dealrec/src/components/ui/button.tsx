@@ -2,26 +2,27 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "sand";
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "sand" | "violet";
 type Size = "sm" | "md" | "lg" | "icon";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex items-center justify-center gap-2 rounded-pill font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700 shadow-sm",
-  secondary: "bg-ink-900 text-white hover:bg-ink-800",
-  outline: "border border-ink-200 bg-white text-ink-800 hover:border-ink-300 hover:bg-ink-50",
-  ghost: "text-ink-700 hover:bg-ink-100",
-  danger: "bg-red-600 text-white hover:bg-red-700",
-  sand: "bg-sand-500 text-white hover:bg-sand-700",
+  primary: "bg-primary text-primary-foreground hover:bg-primary-hover shadow-[var(--shadow-soft)]",
+  secondary: "bg-ink text-white hover:bg-primary-hover",
+  outline: "hairline bg-surface-raised text-ink hover:bg-surface",
+  ghost: "text-ink hover:bg-surface-muted",
+  danger: "bg-danger-500 text-white hover:bg-danger-600",
+  sand: "bg-amber-500 text-white hover:bg-amber-600",
+  violet: "bg-violet-600 text-white hover:bg-violet-700 shadow-[var(--shadow-soft)]",
 };
 
 const sizes: Record<Size, string> = {
-  sm: "h-9 px-3 text-[13px]",
-  md: "h-11 px-4 text-sm",
-  lg: "h-12 px-5 text-base",
-  icon: "h-10 w-10",
+  sm: "h-9 px-4 text-[13px]",
+  md: "h-11 px-5 text-sm",
+  lg: "h-12 px-6 text-base",
+  icon: "h-11 w-11",
 };
 
 export function buttonStyles({

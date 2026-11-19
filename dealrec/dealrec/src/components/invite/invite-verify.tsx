@@ -33,7 +33,7 @@ export function InviteVerify({ token, contact }: { token: string; contact: strin
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-brand-600" aria-hidden />
+            <ShieldCheck className="h-4 w-4 text-violet-600" aria-hidden />
             Verify it is you
           </span>
         }
@@ -65,7 +65,7 @@ export function InviteVerify({ token, contact }: { token: string; contact: strin
             Verify and continue
           </SubmitButton>
         </PreservedForm>
-        <p className="text-[11px] leading-5 text-ink-500">
+        <p className="text-[11px] leading-5 text-ink-subtle">
           The code proves control of this contact channel for this session. It is not a national
           identity check. Never share the code with anyone.
         </p>
