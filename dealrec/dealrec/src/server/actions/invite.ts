@@ -491,19 +491,17 @@ export async function signInvitationAction(
       max: 120,
     });
     requireConsent(formData.get("consent"));
-    const signatureType = parseSignatureType(String(formData.get("signatureType") ?? "drawn"));
-    if (!signatureType) return { error: "Choose a valid signature method." };
+    const signatureType = parseSignatureType(String(formData.get("signatureType") ?? "uploaded"));
+    if (signatureType !== "uploaded") {
+      return { error: "Please upload a signature image to continue." };
+    }
     const signatureData = String(formData.get("signatureData") ?? "");
-
-    let signatureKey: string | null = null;
-    const png = signatureType === "typed" ? null : await decodeSignature(signatureData);
-    if (signatureType !== "typed" && !png) {
-      return { error: "Please provide a valid drawn or uploaded signature image." };
+    const png = await decodeSignature(signatureData);
+    if (!png) {
+      return { error: "Please upload a valid signature image (PNG, JPG or WebP)." };
     }
-    if (png) {
-      signatureKey = `deals/${deal.id}/signatures/${invitation.partyId}-${Date.now()}-${safeFileName(signerName)}.png`;
-      await putFile(signatureKey, png);
-    }
+    const signatureKey = `deals/${deal.id}/signatures/${invitation.partyId}-${Date.now()}-${safeFileName(signerName)}.png`;
+    await putFile(signatureKey, png);
 
     const meta = await getRequestMeta();
     const result = await recordSignature({

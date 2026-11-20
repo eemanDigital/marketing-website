@@ -389,17 +389,24 @@ export function validateTemplateValues(
   return values;
 }
 
+export type FieldChange = {
+  label: string;
+  before: string;
+  after: string;
+};
+
 export function changedFields(
   slug: string | null | undefined,
   previous: Record<string, string>,
   next: Record<string, string>,
-) {
+): FieldChange[] {
   const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
-  const changes: string[] = [];
+  const changes: FieldChange[] = [];
   for (const key of keys) {
-    if ((previous[key] ?? "") !== (next[key] ?? "")) {
-      const label = getFieldLabel(slug, key);
-      changes.push(`${label}: ${previous[key] || "empty"} -> ${next[key] || "empty"}`);
+    const before = previous[key] ?? "";
+    const after = next[key] ?? "";
+    if (before !== after) {
+      changes.push({ label: getFieldLabel(slug, key), before, after });
     }
   }
   return changes;

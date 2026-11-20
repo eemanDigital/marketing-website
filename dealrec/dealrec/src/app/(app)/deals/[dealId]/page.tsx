@@ -65,6 +65,7 @@ import { ObligationForm } from "@/components/deals/obligation-form";
 import { ObligationRecordActions } from "@/components/deals/obligation-record-actions";
 import { WitnessPanel } from "@/components/deals/witness-panel";
 import { ExecutionArtifactsButton } from "@/components/deals/execution-artifacts-button";
+import { ChangeSummaryBlock, RevisedVersionNotice } from "@/components/deals/change-summary-block";
 import { presentStatus } from "@/lib/ui-status";
 import { HashChip } from "@/components/ui/hash-chip";
 
@@ -370,6 +371,12 @@ export default async function DealWorkspacePage({
                       <span>{formatDate(document.createdAt)}</span>
                     </div>
                   ) : null}
+                  {document?.changeSummary ? (
+                    <RevisedVersionNotice
+                      versionNumber={deal.currentVersion}
+                      summary={document.changeSummary}
+                    />
+                  ) : null}
                   <div className="rounded-[20px] bg-surface-muted p-4">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Parties</p>
                     {agreement.parties.map((item) => (
@@ -559,14 +566,19 @@ export default async function DealWorkspacePage({
                     deal.documents
                       .filter((item) => !["receipt", "attachment", "signature", "certificate"].includes(item.documentType))
                       .map((item) => (
-                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-[18px] bg-surface-muted px-3 py-2.5">
-                          <div className="min-w-0">
+                        <div key={item.id} className="flex items-start justify-between gap-3 rounded-[18px] bg-surface-muted px-3 py-2.5">
+                          <div className="min-w-0 flex-1">
                             <p className="text-[12px] font-semibold text-ink">v{item.versionNumber} · {DOCUMENT_LABEL[item.documentType] ?? item.documentType}</p>
                             <p className="truncate font-mono text-[10px] text-ink-subtle">{shortHash(item.sha256, 24)}</p>
                             <p className="text-[10px] text-ink-muted">{fmtWAT(item.createdAt)}</p>
-                            {item.changeSummary ? <p className="mt-1 whitespace-pre-line text-[11px] text-ink-muted">{item.changeSummary}</p> : null}
+                            {item.changeSummary ? (
+                              <div className="mt-2">
+                                <p className="text-[11px] font-semibold text-ink">What changed</p>
+                                <ChangeSummaryBlock summary={item.changeSummary} compact className="mt-1.5" />
+                              </div>
+                            ) : null}
                           </div>
-                          <Link href={`/deals/${deal.id}/documents/${item.id}`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-raised text-ink shadow-[var(--shadow-soft)]" aria-label="Download version">
+                          <Link href={`/deals/${deal.id}/documents/${item.id}`} className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-raised text-ink shadow-[var(--shadow-soft)]" aria-label="Download version">
                             <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />
                           </Link>
                         </div>

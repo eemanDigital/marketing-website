@@ -330,12 +330,13 @@ export async function createNewVersionAction(
     const creatorParty = deal.parties.find((party) => party.isCreator);
     if (!creatorParty) return { error: "Creator party not found." };
 
+    const changeSummary = JSON.stringify(changes);
     const result = await createVersion({
       deal,
       actorUserId: user.id,
       actorPartyId: creatorParty.id,
       values,
-      changeSummary: changes.join("\n"),
+      changeSummary,
     });
 
     const counterparty = deal.parties.find((party) => !party.isCreator);
@@ -355,7 +356,7 @@ export async function createNewVersionAction(
     await notifyDealParties(dealId, {
       type: "DOCUMENT_VERSION_CREATED",
       title: "Revised agreement available",
-      body: `${user.fullName} created version ${result.version} of "${deal.title}". Please review and sign the new version.`,
+      body: `${user.fullName} created version ${result.version} of "${deal.title}" with ${changes.length} updated term${changes.length === 1 ? "" : "s"}. Please review the marked changes and sign the new version.`,
       dealId,
       excludePartyId: creatorParty.id,
       email: true,

@@ -32,6 +32,7 @@ import { InviteVerify } from "@/components/invite/invite-verify";
 import { InviteRespond } from "@/components/invite/invite-respond";
 import { InviteSign } from "@/components/invite/invite-sign";
 import { InviteWitnessPanel } from "@/components/invite/invite-witness-panel";
+import { RevisedVersionNotice } from "@/components/deals/change-summary-block";
 
 export const metadata = { title: "Review your agreement" };
 
@@ -354,6 +355,12 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <Card>
             <CardHeader title="Agreement summary" description={agreement.subtitle} />
             <CardBody className="space-y-4">
+              {currentDoc?.changeSummary ? (
+                <RevisedVersionNotice
+                  versionNumber={deal.currentVersion}
+                  summary={currentDoc.changeSummary}
+                />
+              ) : null}
               {agreement.sections.map((section, index) => (
                 <div key={`${section.heading}-${index}`}>
                   <h3 className="text-[14px] font-bold text-ink">
@@ -377,6 +384,12 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
               description="Read the full PDF before responding. The PDF is the agreement; this is a plain-language preview."
             />
             <CardBody className="space-y-4">
+              {currentDoc?.changeSummary ? (
+                <RevisedVersionNotice
+                  versionNumber={deal.currentVersion}
+                  summary={currentDoc.changeSummary}
+                />
+              ) : null}
               <div className="rounded-[18px] bg-surface-muted p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">Parties</p>
                 {agreement.parties.map((party) => (
