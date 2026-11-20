@@ -657,7 +657,11 @@ export default async function DealWorkspacePage({
                       <EmptyState
                         icon={<ShieldCheck className="h-5 w-5" strokeWidth={1.5} aria-hidden />}
                         title="No sealed record yet"
-                        description="A seal, certificate, and evidence pack are generated after all required parties and witnesses complete signing."
+                        description={
+                          progress.witnessesRequired > 0
+                            ? "A seal, certificate, and evidence pack are generated after all required parties sign and required witnesses attest."
+                            : "A seal, certificate, and evidence pack are generated after all required parties sign."
+                        }
                         action={executionReady && isCreator ? <ExecutionArtifactsButton dealId={deal.id} /> : undefined}
                       />
                     )}
@@ -869,7 +873,11 @@ export default async function DealWorkspacePage({
                 </>
               ) : (
                 <>
-                  <p className="text-ink-muted">Not sealed yet. A verifiable hash and certificate are issued after all required signatures.</p>
+                  <p className="text-ink-muted">
+                    {progress.witnessesRequired > 0
+                      ? "Not sealed yet. A verifiable hash and certificate are issued after all required signatures and witness attestations."
+                      : "Not sealed yet. A verifiable hash and certificate are issued after all required signatures."}
+                  </p>
                   {document ? (
                     <div>
                       <p className="mb-1 text-[10px] font-medium text-ink-muted">Current version hash</p>

@@ -71,6 +71,14 @@ export function toTargetStatus(status: string): TargetStatus {
 }
 
 export function presentStatus(status: string): StatusPresentation {
+  if (status === DEAL_STATUS.AWAITING_WITNESSES) {
+    return {
+      key: "awaiting_signature",
+      label: "Awaiting witness",
+      tone: "amber",
+      description: "Waiting for required witness attestations.",
+    };
+  }
   // Future additive path: a deal flagged as disputed will map to "disputed".
   // For now, keep existing data behavior and derive from current status only.
   return presentations[toTargetStatus(status)];
