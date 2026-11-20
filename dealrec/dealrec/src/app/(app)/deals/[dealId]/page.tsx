@@ -211,7 +211,10 @@ export default async function DealWorkspacePage({
       return { label: "Change requested", cta: "Review changes", href: `/deals/${deal.id}?tab=negotiation` };
     }
     if (iNeedToSign) {
-      return { label: "Your signature is needed", cta: "Sign now", href: `/deals/${deal.id}?tab=terms#signing` };
+      if (isCreator) {
+        return { label: "Your signature is needed", cta: "Sign now", href: `/deals/${deal.id}?tab=terms#signing` };
+      }
+      return { label: "Your signature is needed", cta: "How to sign", href: `/deals/${deal.id}?tab=terms#signing` };
     }
     if (signaturesPending) {
       if (isCreator) {
@@ -458,6 +461,21 @@ export default async function DealWorkspacePage({
                       alreadySigned={mySigned}
                       canSign={openForSigning}
                     />
+                  ) : !isCreator && me?.signatureRequired && !mySigned ? (
+                    openForSigning ? (
+                      <Card>
+                        <CardHeader title="Your signature is needed" description="Sign from your secure invitation link." />
+                        <CardBody>
+                          <Alert tone="info">
+                            To sign this agreement, open the invitation link sent to you. If you can’t find it, ask the creator to send a new access link.
+                          </Alert>
+                        </CardBody>
+                      </Card>
+                    ) : (
+                      <Alert tone="warning">
+                        This agreement is not currently open for signing.
+                      </Alert>
+                    )
                   ) : null}
                   {isCreator && template && !isClosed && deal.status !== DEAL_STATUS.EXECUTED ? (
                     <Card>
