@@ -199,18 +199,33 @@ export default async function DealWorkspacePage({
 
   const partyNames = deal.parties.map((p) => p.fullName);
   const pStatus = presentStatus(deal.status);
+  const iNeedToSign = Boolean(me?.signatureRequired && !mySigned && openForSigning);
+  const signaturesPending = progress.signed < progress.required;
+  const witnessesPending = progress.witnessesRequired > 0 && progress.witnessesAttested < progress.witnessesRequired;
+
   const nextAction = (() => {
-    if (deal.status === DEAL_STATUS.AWAITING_CREATOR_SIGNATURE && isCreator)
-      return { label: "Sign agreement", href: `/deals/${deal.id}?tab=terms#signing` };
-    if (deal.status === DEAL_STATUS.CHANGE_REQUESTED && isCreator)
-      return { label: "Review changes", href: `/deals/${deal.id}?tab=negotiation` };
-    if (deal.status === DEAL_STATUS.AWAITING_COUNTERPARTY && isCreator)
-      return { label: "Share invitation", href: `/deals/${deal.id}?tab=terms#invite` };
-    if (deal.status === DEAL_STATUS.AWAITING_OTHER_SIGNATURES)
-      return { label: "Waiting on other party", href: `/deals/${deal.id}?tab=terms#signing` };
-    if (pStatus.key === "sealed")
-      return { label: "View evidence", href: `/deals/${deal.id}?tab=evidence` };
-    return { label: "Review terms", href: `/deals/${deal.id}?tab=terms#agreement-terms` };
+    if (pStatus.key === "sealed") {
+      return { label: "Agreement sealed", cta: "View evidence", href: `/deals/${deal.id}?tab=evidence` };
+    }
+    if (deal.status === DEAL_STATUS.CHANGE_REQUESTED && isCreator) {
+      return { label: "Change requested", cta: "Review changes", href: `/deals/${deal.id}?tab=negotiation` };
+    }
+    if (iNeedToSign) {
+      return { label: "Your signature is needed", cta: "Sign now", href: `/deals/${deal.id}?tab=terms#signing` };
+    }
+    if (signaturesPending) {
+      if (isCreator) {
+        return { label: "Waiting on other party", cta: "Share invitation", href: `/deals/${deal.id}?tab=terms#invite` };
+      }
+      return { label: "Waiting on other signatures", cta: "View status", href: `/deals/${deal.id}?tab=terms#signing` };
+    }
+    if (witnessesPending) {
+      return { label: "Waiting on witnesses", cta: "Check witnesses", href: `/deals/${deal.id}?tab=terms#witnesses` };
+    }
+    if (isCreator && !activeInvitation && !isClosed && otherParty && !otherPartySigned) {
+      return { label: "Ready to share", cta: "Send invitation", href: `/deals/${deal.id}?tab=terms#invite` };
+    }
+    return { label: "Review terms", cta: "Open terms", href: `/deals/${deal.id}?tab=terms#agreement-terms` };
   })();
 
   // Per-party state derivable today from existing data.
@@ -455,61 +470,65 @@ export default async function DealWorkspacePage({
                 </div>
               </div>
 
-              <div id="invite" className="grid gap-4">
-                <Card>
-                  <CardHeader title="Share & invite" description={otherParty ? `${otherParty.fullName}` : "No other party on this agreement."} />
-                  <CardBody className="space-y-3">
-                    <div className="flex flex-col gap-3 rounded-[18px] bg-surface-muted p-3 text-[12px] sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-ink">{activeInvitation ? "Active invitation" : "No active invitation"}</p>
-                        <p className="text-[11px] text-ink-muted">
-                          {activeInvitation ? `Expires ${formatDate(activeInvitation.expiresAt)} · opens ${activeInvitation.openCount}` : "Create a link to invite or re-share access."}
-                        </p>
-                      </div>
-                      <Badge tone={activeInvitation ? "success" : "neutral"} className="w-fit shrink-0">{activeInvitation?.status ?? "NONE"}</Badge>
-                    </div>
-                    {inviteUrl ? (
-                      <div className="rounded-[18px] bg-violet-50 p-3">
-                        <p className="text-[11px] font-bold text-violet-700">New link (shown once)</p>
-                        <p className="mt-1 break-all font-mono text-[10px] text-ink">{inviteUrl}</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <CopyButton value={inviteUrl} />
-                          <a href={inviteUrl} target="_blank" rel="noreferrer" className={buttonStyles({ variant: "outline", size: "sm" })}>
-                            <Link2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Open
-                          </a>
+              <div className="grid gap-4">
+                <div id="invite" className="scroll-mt-24">
+                  <Card>
+                    <CardHeader title="Share & invite" description={otherParty ? `${otherParty.fullName}` : "No other party on this agreement."} />
+                    <CardBody className="space-y-3">
+                      <div className="flex flex-col gap-3 rounded-[18px] bg-surface-muted p-3 text-[12px] sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink">{activeInvitation ? "Active invitation" : "No active invitation"}</p>
+                          <p className="text-[11px] text-ink-muted">
+                            {activeInvitation ? `Expires ${formatDate(activeInvitation.expiresAt)} · opens ${activeInvitation.openCount}` : "Create a link to invite or re-share access."}
+                          </p>
                         </div>
+                        <Badge tone={activeInvitation ? "success" : "neutral"} className="w-fit shrink-0">{activeInvitation?.status ?? "NONE"}</Badge>
                       </div>
-                    ) : (
-                      <p className="text-[12px] leading-5 text-ink-muted">For security, existing links are never shown again. Create a new link if needed.</p>
-                    )}
-                    {isCreator && !isClosed && otherParty ? (
-                      <div className="flex flex-wrap gap-2">
-                        <form action={sendInvitationAction}>
-                          <input type="hidden" name="dealId" value={deal.id} />
-                          <button type="submit" className={buttonStyles({ size: "sm" })}>
-                            <Send className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-                            {otherPartySigned ? (activeInvitation ? "Create new access link" : "Create access link") : (activeInvitation ? "Create new link" : "Create invitation link")}
-                          </button>
-                        </form>
-                        {activeInvitation ? (
-                          <form action={revokeInvitationAction}>
+                      {inviteUrl ? (
+                        <div className="rounded-[18px] bg-violet-50 p-3">
+                          <p className="text-[11px] font-bold text-violet-700">New link (shown once)</p>
+                          <p className="mt-1 break-all font-mono text-[10px] text-ink">{inviteUrl}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <CopyButton value={inviteUrl} />
+                            <a href={inviteUrl} target="_blank" rel="noreferrer" className={buttonStyles({ variant: "outline", size: "sm" })}>
+                              <Link2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Open
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[12px] leading-5 text-ink-muted">For security, existing links are never shown again. Create a new link if needed.</p>
+                      )}
+                      {isCreator && !isClosed && otherParty ? (
+                        <div className="flex flex-wrap gap-2">
+                          <form action={sendInvitationAction}>
                             <input type="hidden" name="dealId" value={deal.id} />
-                            <button type="submit" className={buttonStyles({ variant: "outline", size: "sm" })}>Revoke active links</button>
+                            <button type="submit" className={buttonStyles({ size: "sm" })}>
+                              <Send className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                              {otherPartySigned ? (activeInvitation ? "Create new access link" : "Create access link") : (activeInvitation ? "Create new link" : "Create invitation link")}
+                            </button>
                           </form>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </CardBody>
-                </Card>
+                          {activeInvitation ? (
+                            <form action={revokeInvitationAction}>
+                              <input type="hidden" name="dealId" value={deal.id} />
+                              <button type="submit" className={buttonStyles({ variant: "outline", size: "sm" })}>Revoke active links</button>
+                            </form>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </CardBody>
+                  </Card>
+                </div>
 
-                <WitnessPanel
-                  dealId={deal.id}
-                  parties={deal.parties.map((item) => ({ id: item.id, fullName: item.fullName, role: item.role, isCreator: item.isCreator }))}
-                  witnesses={witnessViews}
-                  canManage={isCreator || currentUser.isAdmin}
-                  viewerPartyId={me?.id ?? null}
-                  disabled={isClosed || Boolean(deal.executedAt) || deal.status === DEAL_STATUS.EXECUTED}
-                />
+                <div id="witnesses" className="scroll-mt-24">
+                  <WitnessPanel
+                    dealId={deal.id}
+                    parties={deal.parties.map((item) => ({ id: item.id, fullName: item.fullName, role: item.role, isCreator: item.isCreator }))}
+                    witnesses={witnessViews}
+                    canManage={isCreator || currentUser.isAdmin}
+                    viewerPartyId={me?.id ?? null}
+                    disabled={isClosed || Boolean(deal.executedAt) || deal.status === DEAL_STATUS.EXECUTED}
+                  />
+                </div>
               </div>
 
               {isCreator && !isClosed ? (
@@ -852,7 +871,7 @@ export default async function DealWorkspacePage({
                 {progress.signed}/{progress.required} signatures · {progress.witnessesAttested}/{progress.witnessesRequired} witnesses
               </p>
               <ButtonLink href={nextAction.href} size="sm" className="w-full">
-                Continue <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                {nextAction.cta} <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
               </ButtonLink>
               <div className="pt-1 text-[11px] leading-5 text-ink-muted">
                 <p className="inline-flex items-center gap-1"><UserCheck className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Identity is contact-verified (email/phone), not civil ID.</p>
