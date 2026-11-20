@@ -1,8 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Ban, Pencil } from "lucide-react";
-import { editPaymentAction, voidPaymentAction } from "@/server/actions/deals";
+import { Ban, CheckCircle2, Pencil, ShieldAlert } from "lucide-react";
+import {
+  disputePaymentAction,
+  editPaymentAction,
+  verifyPaymentAction,
+  voidPaymentAction,
+} from "@/server/actions/deals";
 import { PAYMENT_METHODS } from "@/lib/constants";
 import { buttonStyles } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -19,20 +24,25 @@ type PaymentRecord = {
   reference: string | null;
   notes: string | null;
   revision: number;
+  verificationStatus: string;
 };
 
 export function PaymentRecordActions({
   dealId,
   payment,
   canManage,
+  canReview,
 }: {
   dealId: string;
   payment: PaymentRecord;
   canManage: boolean;
+  canReview: boolean;
 }) {
-  const [mode, setMode] = useState<"edit" | "void" | null>(null);
+  const [mode, setMode] = useState<"edit" | "void" | "verify" | "dispute" | null>(null);
   const [editState, editAction] = useActionState(editPaymentAction, null);
   const [voidState, voidAction] = useActionState(voidPaymentAction, null);
+  const [verifyState, verifyAction] = useActionState(verifyPaymentAction, null);
+  const [disputeState, disputeAction] = useActionState(disputePaymentAction, null);
 
   const [lastEditState, setLastEditState] = useState(editState);
   if (editState !== lastEditState) {
@@ -44,32 +54,68 @@ export function PaymentRecordActions({
     setLastVoidState(voidState);
     if (voidState?.success) setMode(null);
   }
+  const [lastVerifyState, setLastVerifyState] = useState(verifyState);
+  if (verifyState !== lastVerifyState) {
+    setLastVerifyState(verifyState);
+    if (verifyState?.success) setMode(null);
+  }
+  const [lastDisputeState, setLastDisputeState] = useState(disputeState);
+  if (disputeState !== lastDisputeState) {
+    setLastDisputeState(disputeState);
+    if (disputeState?.success) setMode(null);
+  }
 
-  if (!canManage) return null;
+  if (!canManage && !canReview) return null;
 
   return (
     <div className="mt-2.5 border-t border-ink-100 pt-2.5">
       <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          onClick={() => setMode(mode === "edit" ? null : "edit")}
-          className={buttonStyles({ variant: "ghost", size: "sm" })}
-        >
-          <Pencil className="h-3.5 w-3.5" aria-hidden />
-          Edit
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode(mode === "void" ? null : "void")}
-          className={buttonStyles({ variant: "ghost", size: "sm", className: "text-danger-700 hover:bg-danger-50" })}
-        >
-          <Ban className="h-3.5 w-3.5" aria-hidden />
-          Void
-        </button>
+        {canReview && payment.verificationStatus !== "VERIFIED" ? (
+          <button
+            type="button"
+            onClick={() => setMode(mode === "verify" ? null : "verify")}
+            className={buttonStyles({ variant: "ghost", size: "sm", className: "text-sky-700 hover:bg-sky-50" })}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+            Confirm
+          </button>
+        ) : null}
+        {canReview && payment.verificationStatus !== "DISPUTED" ? (
+          <button
+            type="button"
+            onClick={() => setMode(mode === "dispute" ? null : "dispute")}
+            className={buttonStyles({ variant: "ghost", size: "sm", className: "text-amber-700 hover:bg-amber-50" })}
+          >
+            <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
+            Dispute
+          </button>
+        ) : null}
+        {canManage ? (
+          <button
+            type="button"
+            onClick={() => setMode(mode === "edit" ? null : "edit")}
+            className={buttonStyles({ variant: "ghost", size: "sm" })}
+          >
+            <Pencil className="h-3.5 w-3.5" aria-hidden />
+            Edit
+          </button>
+        ) : null}
+        {canManage ? (
+          <button
+            type="button"
+            onClick={() => setMode(mode === "void" ? null : "void")}
+            className={buttonStyles({ variant: "ghost", size: "sm", className: "text-danger-700 hover:bg-danger-50" })}
+          >
+            <Ban className="h-3.5 w-3.5" aria-hidden />
+            Void
+          </button>
+        ) : null}
       </div>
 
       <ActionMessage state={editState} />
       <ActionMessage state={voidState} />
+      <ActionMessage state={verifyState} />
+      <ActionMessage state={disputeState} />
 
       {mode === "edit" ? (
         <PreservedForm action={editAction} className="mt-3 space-y-3 rounded-xl border border-ink-200 bg-surface-raised p-3">
@@ -208,6 +254,42 @@ export function PaymentRecordActions({
             >
               Cancel
             </button>
+          </div>
+        </PreservedForm>
+      ) : null}
+
+      {mode === "verify" ? (
+        <PreservedForm action={verifyAction} className="mt-3 space-y-3 rounded-xl border border-sky-200 bg-sky-50/60 p-3">
+          <input type="hidden" name="dealId" value={dealId} />
+          <input type="hidden" name="paymentId" value={payment.id} />
+          <input type="hidden" name="revision" value={payment.revision} />
+          <Field label="Note (optional)" htmlFor={`verify-note-${payment.id}`} hint="Optional note for the record.">
+            <Textarea id={`verify-note-${payment.id}`} name="note" maxLength={500} placeholder="e.g. Funds received in account." />
+          </Field>
+          <Alert tone="info">
+            Confirming means you acknowledge this payment as received/valid based on what you can see. It is recorded in the audit trail but is not an independent bank verification.
+          </Alert>
+          <div className="flex flex-wrap gap-2">
+            <SubmitButton size="sm" pendingLabel="Confirming...">Confirm payment</SubmitButton>
+            <button type="button" onClick={() => setMode(null)} className={buttonStyles({ variant: "outline", size: "sm" })}>Cancel</button>
+          </div>
+        </PreservedForm>
+      ) : null}
+
+      {mode === "dispute" ? (
+        <PreservedForm action={disputeAction} className="mt-3 space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+          <input type="hidden" name="dealId" value={dealId} />
+          <input type="hidden" name="paymentId" value={payment.id} />
+          <input type="hidden" name="revision" value={payment.revision} />
+          <Field label="Reason for disputing" htmlFor={`dispute-reason-${payment.id}`} required hint="Required. Both parties see this reason in the audit log.">
+            <Textarea id={`dispute-reason-${payment.id}`} name="reason" required minLength={5} maxLength={500} placeholder="Explain why this payment is being disputed." />
+          </Field>
+          <Alert tone="warning">
+            Disputing marks this payment as not accepted and excludes it from the active paid/outstanding totals until it is corrected or re-confirmed.
+          </Alert>
+          <div className="flex flex-wrap gap-2">
+            <SubmitButton size="sm" variant="danger" pendingLabel="Submitting...">Dispute payment</SubmitButton>
+            <button type="button" onClick={() => setMode(null)} className={buttonStyles({ variant: "outline", size: "sm" })}>Cancel</button>
           </div>
         </PreservedForm>
       ) : null}

@@ -1179,6 +1179,148 @@ export async function voidPaymentAction(
   }
 }
 
+export async function verifyPaymentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const dealId = String(formData.get("dealId") ?? "");
+  try {
+    const { deal, party, user } = await requireDealParty(dealId);
+    assertEditable(deal);
+    const paymentId = String(formData.get("paymentId") ?? "");
+    const payment = deal.payments.find((item) => item.id === paymentId);
+    if (!payment) return { error: "Payment not found." };
+    if (payment.voidedAt) return { error: "A voided payment cannot be confirmed." };
+
+    const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+    if (!actor) return { error: "Only deal parties can confirm payments." };
+    if (payment.recordedByPartyId === actor.id) {
+      return { error: "You cannot confirm a payment you recorded. Another party must confirm it." };
+    }
+    if (payment.verificationStatus === "VERIFIED") {
+      return { ok: true, success: "This payment is already confirmed." };
+    }
+
+    const revision = requireRevision(formData.get("revision"));
+    if (revision !== payment.revision) {
+      return { error: "This payment changed while you were updating it. Refresh and try again." };
+    }
+    const note = normalizeString(formData.get("note"), 500) || null;
+    const before = paymentSnapshot(payment);
+
+    await db.$transaction(async (tx) => {
+      const updated = await tx.paymentRecord.updateMany({
+        where: { id: paymentId, dealId, revision, voidedAt: null },
+        data: {
+          verificationStatus: "VERIFIED",
+          revision: { increment: 1 },
+          lastEditedAt: new Date(),
+          lastEditedByPartyId: actor.id,
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("This payment changed while you were updating it. Refresh and try again.");
+      }
+      await appendEvent(tx, {
+        dealId,
+        eventType: EVENT.PAYMENT_VERIFIED,
+        description: `Payment of ${payment.amount.toLocaleString("en-NG")} NGN confirmed by ${actor.fullName}.${note ? ` Note: ${note}` : ""}`,
+        actorPartyId: actor.id,
+        metadata: { paymentId, note, before, after: { ...before, verificationStatus: "VERIFIED", revision: revision + 1 } },
+      });
+    });
+
+    await notifyDealParties(dealId, {
+      type: "PAYMENT_VERIFIED",
+      title: "Payment confirmed",
+      body: `${actor.fullName} confirmed a payment of ${payment.amount.toLocaleString("en-NG")} NGN on "${deal.title}".${note ? ` Note: ${note}` : ""}`,
+      dealId,
+      excludePartyId: actor.id,
+    });
+
+    const refreshed = await getFullDeal(dealId);
+    const summary = refreshed ? paymentSummary(refreshed) : null;
+    revalidateDeal(dealId);
+    return {
+      ok: true,
+      success: `Payment confirmed.${summary?.outstanding !== null && summary ? ` Outstanding: ${summary.outstanding.toLocaleString("en-NG")} NGN.` : ""}`,
+    };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
+}
+
+export async function disputePaymentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const dealId = String(formData.get("dealId") ?? "");
+  try {
+    const { deal, party, user } = await requireDealParty(dealId);
+    assertEditable(deal);
+    const paymentId = String(formData.get("paymentId") ?? "");
+    const payment = deal.payments.find((item) => item.id === paymentId);
+    if (!payment) return { error: "Payment not found." };
+    if (payment.voidedAt) return { error: "A voided payment cannot be disputed." };
+
+    const actor = party ?? deal.parties.find((item) => item.userId === user.id);
+    if (!actor) return { error: "Only deal parties can dispute payments." };
+    if (payment.recordedByPartyId === actor.id) {
+      return { error: "You cannot dispute a payment you recorded. Edit or void it instead." };
+    }
+    if (payment.verificationStatus === "DISPUTED") {
+      return { ok: true, success: "This payment is already disputed." };
+    }
+
+    const revision = requireRevision(formData.get("revision"));
+    if (revision !== payment.revision) {
+      return { error: "This payment changed while you were updating it. Refresh and try again." };
+    }
+    const reason = requireText(formData.get("reason"), "Reason for disputing", { min: 5, max: 500 });
+    const before = paymentSnapshot(payment);
+
+    await db.$transaction(async (tx) => {
+      const updated = await tx.paymentRecord.updateMany({
+        where: { id: paymentId, dealId, revision, voidedAt: null },
+        data: {
+          verificationStatus: "DISPUTED",
+          revision: { increment: 1 },
+          lastEditedAt: new Date(),
+          lastEditedByPartyId: actor.id,
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("This payment changed while you were updating it. Refresh and try again.");
+      }
+      await appendEvent(tx, {
+        dealId,
+        eventType: EVENT.PAYMENT_DISPUTED,
+        description: `Payment of ${payment.amount.toLocaleString("en-NG")} NGN disputed by ${actor.fullName}. Reason: ${reason}`,
+        actorPartyId: actor.id,
+        metadata: { paymentId, reason, before, after: { ...before, verificationStatus: "DISPUTED", revision: revision + 1 } },
+      });
+    });
+
+    await notifyDealParties(dealId, {
+      type: "PAYMENT_DISPUTED",
+      title: "Payment disputed",
+      body: `${actor.fullName} disputed a payment of ${payment.amount.toLocaleString("en-NG")} NGN on "${deal.title}". Reason: ${reason}`,
+      dealId,
+      excludePartyId: actor.id,
+    });
+
+    const refreshed = await getFullDeal(dealId);
+    const summary = refreshed ? paymentSummary(refreshed) : null;
+    revalidateDeal(dealId);
+    return {
+      ok: true,
+      success: `Payment marked as disputed.${summary?.outstanding !== null && summary ? ` Outstanding: ${summary.outstanding.toLocaleString("en-NG")} NGN.` : ""}`,
+    };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
+}
+
 export async function cancelDealAction(formData: FormData) {
   const dealId = String(formData.get("dealId") ?? "");
   const reason = normalizeString(formData.get("reason"), 1000);

@@ -708,15 +708,38 @@ export default async function DealWorkspacePage({
                           !isClosed &&
                           !voided &&
                           (currentUser.isAdmin || isCreator || payment.recordedByPartyId === me?.id);
+                        const canReview =
+                          !isClosed &&
+                          !voided &&
+                          Boolean(me?.id) &&
+                          payment.recordedByPartyId !== me?.id;
+                        const verificationLabel =
+                          payment.verificationStatus === "VERIFIED"
+                            ? "Confirmed"
+                            : payment.verificationStatus === "DISPUTED"
+                              ? "Disputed"
+                              : "Unconfirmed";
+                        const verificationTone: "success" | "danger" | "warning" =
+                          payment.verificationStatus === "VERIFIED"
+                            ? "success"
+                            : payment.verificationStatus === "DISPUTED"
+                              ? "danger"
+                              : "warning";
                         return (
                           <div key={payment.id} className={cn("rounded-[18px] bg-surface-muted p-3", voided && "opacity-70")}>
                             <div className="flex items-start justify-between gap-2">
-                              <div>
+                              <div className="min-w-0">
                                 <p className={cn("text-[14px] font-bold text-ink", voided && "line-through")}>{formatNaira(payment.amount)}</p>
                                 <p className="text-[11px] text-ink-muted">{formatDate(payment.paymentDate)} · {payment.paymentMethod}</p>
+                                {payment.reference ? <p className="mt-0.5 text-[10px] text-ink-subtle">Ref: {payment.reference}</p> : null}
+                                <p className="mt-0.5 text-[10px] text-ink-subtle">Recorded by {payment.recordedBy.fullName}</p>
                               </div>
-                              <Badge tone={voided ? "danger" : "warning"}>{voided ? "Voided" : payment.verificationStatus}</Badge>
+                              <Badge tone={voided ? "danger" : verificationTone}>{voided ? "Voided" : verificationLabel}</Badge>
                             </div>
+                            {payment.notes ? <p className="mt-1.5 text-[11px] leading-5 text-ink-muted">{payment.notes}</p> : null}
+                            {voided && payment.voidReason ? (
+                              <p className="mt-1.5 text-[11px] leading-5 text-danger-700">Voided: {payment.voidReason}</p>
+                            ) : null}
                             {payment.receipt ? (
                               <a href={`/deals/${deal.id}/documents/${payment.receipt.id}`} className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700">
                                 <FileText className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /> Receipt
@@ -724,8 +747,9 @@ export default async function DealWorkspacePage({
                             ) : null}
                             <PaymentRecordActions
                               dealId={deal.id}
-                              payment={{ id: payment.id, amount: payment.amount, paymentDateInput: toDateInputValue(payment.paymentDate), paymentMethod: payment.paymentMethod, reference: payment.reference, notes: payment.notes, revision: payment.revision }}
+                              payment={{ id: payment.id, amount: payment.amount, paymentDateInput: toDateInputValue(payment.paymentDate), paymentMethod: payment.paymentMethod, reference: payment.reference, notes: payment.notes, revision: payment.revision, verificationStatus: payment.verificationStatus }}
                               canManage={canManage}
+                              canReview={canReview}
                             />
                           </div>
                         );
@@ -828,7 +852,7 @@ export default async function DealWorkspacePage({
                 </CardBody>
               </Card>
               <Alert tone="info" title="Event coverage (existing log)">
-                Logged today: deal/document creation &amp; versions, invitations/access links (create/deliver/open/accept/decline), contact verification, account linking, comments/edits/retractions, change requests, signature intent &amp; signatures, witness lifecycle, execution/completion/cancel/void, payments/receipts/obligations (create/update/void/cancel/complete/dispute), evidence pack generation, seal revocation, admin actions. Not yet logged as DealEvents: per-party document &quot;viewed&quot; timestamps and granular OTP send/fail attempts (OTP records exist separately).
+                Logged today: deal/document creation &amp; versions, invitations/access links (create/deliver/open/accept/decline), contact verification, account linking, comments/edits/retractions, change requests, signature intent &amp; signatures, witness lifecycle, execution/completion/cancel/void, payments/receipts/obligations (record/edit/confirm/dispute/void), evidence pack generation, seal revocation, admin actions. Not yet logged as DealEvents: per-party document &quot;viewed&quot; timestamps and granular OTP send/fail attempts (OTP records exist separately).
               </Alert>
             </div>
           ) : null}

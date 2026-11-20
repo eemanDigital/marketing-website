@@ -55,7 +55,8 @@ export function PaymentForm({ dealId }: { dealId: string }) {
       </div>
       <Alert tone="info">
         Payments recorded here are party-reported. Uploading a receipt helps, but the platform does not
-        connect to your bank and does not independently confirm that money moved.
+        connect to your bank and does not independently confirm that money moved. The other party can
+        confirm or dispute this payment after you record it.
       </Alert>
       <SubmitButton size="sm" pendingLabel="Recording...">
         Record payment

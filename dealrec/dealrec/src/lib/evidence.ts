@@ -233,6 +233,8 @@ export async function buildEvidencePack(dealId: string) {
     }
   }
 
+  // (payment verification events are captured in the audit trail)
+
   const verificationToken = seal.verificationToken;
   const url = verificationUrl(verificationToken);
   const partiesLines = deal.parties.map((party) => `- ${party.role}: ${party.fullName}`).join("\n");
@@ -339,7 +341,11 @@ Generated: ${generatedAt.toISOString()}
       witnesses: versionWitnesses.length,
       eventCount: deal.events.length + 1,
       paymentCount: deal.payments.length,
-      obligationCount: deal.obligations.length + deal.payments.filter((p) => p.verificationStatus === "UNVERIFIED").length,
+      obligationCount:
+        deal.obligations.length +
+        deal.payments.filter(
+          (p) => p.verificationStatus === "UNVERIFIED" || p.verificationStatus === "DISPUTED",
+        ).length,
       obligationStatus: OBLIGATION_STATUS.PENDING,
       documentType: DOCUMENT_TYPE.EXECUTION_COPY,
       events: deal.events,

@@ -191,7 +191,10 @@ export function invitationProblem(invitation: {
 }
 
 export function paymentSummary(deal: FullDeal): PaymentSummary {
-  const paid = deal.payments.filter((payment) => !payment.voidedAt).reduce((sum, payment) => sum + payment.amount, 0);
+  const activePayments = deal.payments.filter(
+    (payment) => !payment.voidedAt && payment.verificationStatus !== "DISPUTED",
+  );
+  const paid = activePayments.reduce((sum, payment) => sum + payment.amount, 0);
   const total = deal.totalAmount && deal.totalAmount > 0 ? deal.totalAmount : null;
   const outstanding = total === null ? null : Math.max(total - paid, 0);
   const status =
