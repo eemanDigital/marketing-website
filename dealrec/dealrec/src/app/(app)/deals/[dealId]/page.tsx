@@ -201,16 +201,16 @@ export default async function DealWorkspacePage({
   const pStatus = presentStatus(deal.status);
   const nextAction = (() => {
     if (deal.status === DEAL_STATUS.AWAITING_CREATOR_SIGNATURE && isCreator)
-      return { label: "Sign agreement", href: `/deals/${deal.id}?tab=terms` };
+      return { label: "Sign agreement", href: `/deals/${deal.id}?tab=terms#signing` };
     if (deal.status === DEAL_STATUS.CHANGE_REQUESTED && isCreator)
       return { label: "Review changes", href: `/deals/${deal.id}?tab=negotiation` };
     if (deal.status === DEAL_STATUS.AWAITING_COUNTERPARTY && isCreator)
       return { label: "Share invitation", href: `/deals/${deal.id}?tab=terms#invite` };
     if (deal.status === DEAL_STATUS.AWAITING_OTHER_SIGNATURES)
-      return { label: "Waiting on other party", href: `/deals/${deal.id}?tab=terms` };
+      return { label: "Waiting on other party", href: `/deals/${deal.id}?tab=terms#signing` };
     if (pStatus.key === "sealed")
       return { label: "View evidence", href: `/deals/${deal.id}?tab=evidence` };
-    return { label: "Review terms", href: `/deals/${deal.id}?tab=terms` };
+    return { label: "Review terms", href: `/deals/${deal.id}?tab=terms#agreement-terms` };
   })();
 
   // Per-party state derivable today from existing data.
@@ -350,6 +350,7 @@ export default async function DealWorkspacePage({
 
           {tab === "terms" ? (
             <div className="space-y-4">
+              <div id="agreement-terms" className="scroll-mt-24">
               <Card>
                 <CardHeader
                   title="Agreement terms"
@@ -405,8 +406,9 @@ export default async function DealWorkspacePage({
                   ) : null}
                 </CardBody>
               </Card>
+              </div>
 
-              <div className="grid gap-4">
+              <div id="signing" className="grid scroll-mt-24 gap-4">
                 <Card>
                   <CardHeader title="Signatures" description="Per-party status for the current version." />
                   <CardBody className="space-y-2.5">
@@ -849,7 +851,7 @@ export default async function DealWorkspacePage({
               <p className="text-[12px] leading-5 text-ink-muted">
                 {progress.signed}/{progress.required} signatures · {progress.witnessesAttested}/{progress.witnessesRequired} witnesses
               </p>
-              <ButtonLink href={nextAction.href} size="sm">
+              <ButtonLink href={nextAction.href} size="sm" className="w-full">
                 Continue <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
               </ButtonLink>
               <div className="pt-1 text-[11px] leading-5 text-ink-muted">
